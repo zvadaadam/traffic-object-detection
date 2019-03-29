@@ -1,0 +1,25 @@
+info:
+  model_name: Object Detection
+dataset:
+  name: &dataset_name udacity
+  root_dataset: &root_dataset object-dataset/
+  dataset_path: !join [*root_dataset, *dataset_name]
+  test_size: 0.3
+  num_classes: 5
+hyperparams:
+  batch_size: &batch_size 8
+  num_layers: &num_layers 2
+  num_classes: 5
+  num_epoches: 200
+  num_iterations: 10
+model:
+  model_type: &model_type CNN
+  trained_path:  trained_models/
+  model_description: !join [*model_type, _, l, *num_layers, _, b, *batch_size]
+  tensorboard_path: !join [tensorboard/, *model_type, _, l, *num_layers, _, b, *batch_size]
+  restore_trained_model: #!join [trained_models/, *model_type, _, l, *num_layers, _, b, *batch_size]
+yolo:
+  image_height: 448
+  image_width: 448
+  grid_size: 7
+  boxes_per_cell: 1

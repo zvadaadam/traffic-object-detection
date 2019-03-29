@@ -1,0 +1,6 @@
+
+
+class TrainerBase(object):
+
+    pass
+
