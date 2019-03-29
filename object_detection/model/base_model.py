@@ -1,10 +1,19 @@
 import tensorflow as tf
+from object_detection.config.config_reader import ConfigReader
 
 
 class ModelBase(object):
 
-    def __init__(self, config):
+    def __init__(self, config: ConfigReader):
         self.config = config
+
+        self.loss = None
+        self.acc = None
+        self.opt = None
+        self.logits = None
+        self.x = None
+        self.y = None
+
 
     def normalization(self, x, radius, alpha, beta, name, bias=1.0):
         return tf.nn.local_response_normalization(x, depth_radius=radius, alpha=alpha, beta=beta,

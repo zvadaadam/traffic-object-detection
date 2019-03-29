@@ -1,18 +1,38 @@
 import tensorflow as tf
 import numpy as np
 from object_detection.model.base_model import ModelBase
+from object_detection.config.config_reader import ConfigReader
 
 
 class YOLO(ModelBase):
 
-    def __init__(self, session, cofig):
-        super(YOLO, self).__init__(cofig)
+    def __init__(self, session: tf.Session, config: ConfigReader):
+        super(YOLO, self).__init__(config)
 
         self.session = session
 
+        self.init_placeholders()
+
+    def init_placeholders(self):
+
+        image_height = self.config.image_height()
+        image_width = self.config.image_width()
+        num_classes = self.config.num_classes()
+
+        self.x = tf.placeholder(tf.float32, [None, image_height, image_width, 3])
+        self.y = tf.placeholder(tf.float32, [None, num_classes])
+
     def build_model(self, x, y):
 
-        pass
+        print('Building computation graph...')
+
+        yolo_output = self.yolo(x)
+
+        self.loss = self.loss(yolo_output, y)
+
+        self.opt = self.optimizer(self.loss)
+
+        self.acc = self.accuracy(self.logits, y)
 
 
     def yolo(self, input):
@@ -187,6 +207,16 @@ class YOLO(ModelBase):
         loss = tf.add(loss, loss_class)
 
         return loss
+
+    def optimizer(self, loss):
+        return tf.train.AdamOptimizer().minimize(loss)
+
+    def accuracy(self, logits, y):
+        with tf.name_scope('loss'):
+            acc = tf.equal(tf.argmax(logits, axis=1), tf.argmax(y, axis=1))
+            acc = tf.reduce_mean(tf.cast(acc, tf.float32))
+
+        return acc
 
     def cord_loss(self, label, pred, lambda_cord=5):
         # INPUT: (?, grid_size, grid_size, bB*5 + num_classes)
