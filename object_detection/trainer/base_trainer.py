@@ -29,8 +29,7 @@ class BaseTrain(object):
         It has the capabilities to restore and save trained models.
         """
 
-        model_train_inputs, train_handle = self.dataset_iterator(mode='train')
-        model_test_inputs, test_handle = self.dataset_iterator(mode='test')
+        model_train_inputs, train_handle, test_handle = self.dataset_iterator()
 
         self.train_handle = train_handle
         self.test_handle = test_handle

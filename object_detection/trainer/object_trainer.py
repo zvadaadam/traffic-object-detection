@@ -1,24 +1,27 @@
+import tensorflow as tf
 from object_detection.trainer.base_trainer import BaseTrain
 from object_detection.dataset.image_iterator import ImageIterator
 from object_detection.utils.tensor_logger import TensorLogger
+from object_detection.config.config_reader import ConfigReader
 
 
-class Trainer(BaseTrain):
+class ObjectTrainer(BaseTrain):
 
-    def __init__(self, session, model, dataset, config):
-        super(Trainer, self).__init__(session, model, dataset, config)
+    def __init__(self, session: tf.Session(), model, dataset, config: ConfigReader):
+        super(ObjectTrainer, self).__init__(session, model, dataset, config)
 
         self.logger = TensorLogger(log_path=self.config.tensorboard_path(), session=self.session)
-        self.iterator = ImageIterator(self.dataset, self.model, self.session, self.config)
+        self.iterator = ImageIterator(self.session, self.model, self.dataset, self.config)
 
     def dataset_iterator(self, mode='train'):
 
         # model_train_inputs, train_handle = self.iterator.create_dataset_iterator(mode='train')
         # _, test_handle = self.iterator.create_dataset_iterator(mode='test')
 
-        model_train_inputs, train_handle = self.iterator.generating_iterator()
+        model_train_inputs, train_handle = self.iterator.create_iterator(mode='train')
+        _, test_handle = self.iterator.create_iterator(mode='test')
 
-        return model_train_inputs, train_handle
+        return model_train_inputs, train_handle, test_handle
 
     def train_epoch(self, cur_epoche):
 

@@ -6,10 +6,8 @@ from object_detection.config.config_reader import ConfigReader
 
 class YOLO(ModelBase):
 
-    def __init__(self, session: tf.Session, config: ConfigReader):
+    def __init__(self, config: ConfigReader):
         super(YOLO, self).__init__(config)
-
-        self.session = session
 
         self.init_placeholders()
 
@@ -18,17 +16,21 @@ class YOLO(ModelBase):
         image_height = self.config.image_height()
         image_width = self.config.image_width()
         num_classes = self.config.num_classes()
+        grid_size = self.config.grid_size()
+        boxes_per_cell = self.config.boxes_per_cell()
 
         self.x = tf.placeholder(tf.float32, [None, image_height, image_width, 3])
-        self.y = tf.placeholder(tf.float32, [None, num_classes])
+        self.y = tf.placeholder(tf.float32, [None, grid_size, grid_size, (boxes_per_cell*5) + num_classes])
 
-    def build_model(self, x, y):
+    def build_model(self, input):
+
+        x, y = input['x'], input['y']
 
         print('Building computation graph...')
 
         yolo_output = self.yolo(x)
 
-        self.loss = self.loss(yolo_output, y)
+        self.loss = self.yolo_loss(yolo_output, y)
 
         self.opt = self.optimizer(self.loss)
 
@@ -183,17 +185,22 @@ class YOLO(ModelBase):
         fc1 = self.fully_connected(cnn_output, 4096, scope_name='fc6')
         print('FC1: {}'.format(fc1.get_shape()))
 
-        # LAYER 7
-        fc2 = self.fully_connected(fc1, 1470, scope_name='fc7')
-        print('FC1: {}'.format(fc2.get_shape()))
+        # LAYER 7 - OUTPUT
+        grid_size = self.config.grid_size()
+        num_classes = self.config.num_classes()
+        boxes_per_cell = self.config.boxes_per_cell()
 
-        print('Logits: {}'.format(fc2.get_shape()))
+        output_size = (grid_size*grid_size) * (boxes_per_cell*5 + num_classes)
 
-        # TODO: unflatten -> 7 * 7 * (2*(x,y,h,w,confidence_coef) + num_classes)
+        fc2 = self.fully_connected(fc1, output_size , scope_name='fc7')
+        print('FC2: {}'.format(fc2.get_shape()))
 
-        return fc2
+        logits = tf.reshape(fc2, shape=[self.config.batch_size(), grid_size, grid_size, boxes_per_cell*5 + num_classes])
+        print('Logits: {}'.format(logits.get_shape()))
 
-    def loss(self, predict, label, lambda_cord=5, lambda_noobj=0.5):
+        return logits
+
+    def yolo_loss(self, predict, label, lambda_cord=5, lambda_noobj=0.5):
 
         # INPUT: (?, grid_size, grid_size, bB*5 + num_classes)
 
@@ -228,9 +235,8 @@ class YOLO(ModelBase):
         #indicator_coord = tf.math.ceil(indicator_coord)
 
         # ---TESTING PURPOSE----
-        indicator_coord = tf.dtypes.cast(indicator_coord > 0.4, tf.float32)
-
-        print(indicator_coord.eval())
+        # indicator_coord = tf.dtypes.cast(indicator_coord > 0.4, tf.float32)
+        # print(indicator_coord.eval())
 
         with tf.name_scope('cord'):
 
@@ -254,14 +260,14 @@ class YOLO(ModelBase):
 
         indicator_noobj = (1 - label[..., 4])
         # ---TESTING PURPOSE----
-        indicator_noobj = tf.dtypes.cast(indicator_noobj > 0.6, tf.float32)
-        print(indicator_noobj.eval())
+        # indicator_noobj = tf.dtypes.cast(indicator_noobj > 0.6, tf.float32)
+        # print(indicator_noobj.eval())
         # ---TESTING PURPOSE----
 
         indicator_obj = label[..., 4]
         # ---TESTING PURPOSE----
-        indicator_obj = tf.dtypes.cast(indicator_obj > 0.4, tf.float32)
-        print(indicator_obj.eval())
+        # indicator_obj = tf.dtypes.cast(indicator_obj > 0.4, tf.float32)
+        # print(indicator_obj.eval())
         # ---TESTING PURPOSE----
 
         with tf.name_scope('confidence'):
@@ -280,10 +286,10 @@ class YOLO(ModelBase):
 
     def classes_loss(self, label, pred):
 
-        indicator_class = label[..., 4]
+        indicator_class = tf.expand_dims(label[..., 4], axis=-1)
         # ---TESTING PURPOSE----
-        indicator_class = tf.dtypes.cast(indicator_class > 0.6, tf.float32)
-        print(indicator_class.eval())
+        # indicator_class = tf.dtypes.cast(indicator_class > 0.6, tf.float32)
+        # print(indicator_class.eval())
         # ---TESTING PURPOSE----
 
         with tf.name_scope('confidence'):

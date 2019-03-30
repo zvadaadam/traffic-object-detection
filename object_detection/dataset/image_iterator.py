@@ -1,4 +1,5 @@
 import tensorflow as tf
+import numpy as np
 from object_detection.config.config_reader import ConfigReader
 from object_detection.dataset.dataset_base import DatasetBase
 from object_detection.model.base_model import ModelBase
@@ -12,6 +13,9 @@ class ImageIterator(object):
         self.model = model
         self.dataset = dataset
         self.config = config
+
+        self.handle_placeholder = tf.placeholder(tf.string, shape=[])
+
 
     def create_iterator(self, mode='train'):
 
@@ -37,9 +41,17 @@ class ImageIterator(object):
         else:
             df = self.dataset.test_dataset()
 
+        print(df.info())
+
+        images = np.array(df['image'].values.tolist())
+        labels = np.array(df['label'].values.tolist())
+
+        print(images.shape)
+        print(labels.shape)
+
         feed = {
-            self.model.x: df['x'],
-            self.model.y: df['y']
+            self.model.x: images,
+            self.model.y: labels
         }
         self.session.run(dataset_iterator.initializer, feed_dict=feed)
 

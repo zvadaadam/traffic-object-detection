@@ -1,22 +1,36 @@
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
+from sklearn.model_selection import train_test_split
 from object_detection.dataset.dataset_base import DatasetBase
 from object_detection.utils import image_utils
 from object_detection.utils import yolo_utils
+from object_detection.config.config_reader import ConfigReader
 
 
 class UdacityObjectDataset(DatasetBase):
 
-    def __init__(self, config):
+    def __init__(self, config: ConfigReader):
         super(UdacityObjectDataset, self).__init__(config)
 
         self.load_dataset()
+        #self.load_dataset_from_pickle('udacity_dataset_500.pkl')
+
+    def load_dataset_from_pickle(self, path):
+        df = self.load_pickle(path)
+
+        train_df, test_df = train_test_split(df, test_size=self.config.test_size())
+
+        self.set_train_df(train_df)
+        self.set_test_df(test_df)
 
     def load_dataset(self):
-        self.load_udacity_dataset()
+        df = self.load_udacity_dataset()
 
-        # TODO: SPLIT DATASET in DFs
+        train_df, test_df = train_test_split(df, test_size=self.config.test_size())
+
+        self.set_train_df(train_df)
+        self.set_test_df(test_df)
 
     def load_udacity_dataset(self):
 
@@ -27,10 +41,7 @@ class UdacityObjectDataset(DatasetBase):
             data = f.readlines()
         data = [item.split() for item in data]
 
-        labels_df = self.create_labels_dataframe(data)
-
-        self.labels_df = labels_df
-
+        return self.create_labels_dataframe(data)
 
     def create_labels_dataframe(self, data):
 
@@ -44,7 +55,7 @@ class UdacityObjectDataset(DatasetBase):
         occlusions = []
         labels = []
 
-        for data_row in data:
+        for data_row in data[0:500]:
             frames.append(data_row[0])
             x_min.append(data_row[1])
             y_min.append(data_row[2])
@@ -99,7 +110,7 @@ class UdacityObjectDataset(DatasetBase):
         for frame, boxes in tqdm(dataset.groupby(['frame'])):
 
             # load images
-            img = image_utils.load_img(config.dataset_path(), frame)
+            img = image_utils.load_img(self.config.dataset_path(), frame)
             original_image_shape = img.shape
 
             # create zeroed out yolo label
@@ -127,8 +138,15 @@ class UdacityObjectDataset(DatasetBase):
         df['image'] = images
         df['label'] = labels
 
-        self.df = df
+        self.save_to_pickle(df)
 
+        return df
+
+    def save_to_pickle(self, df):
+        df.to_pickle('udacity_dataset_500.pkl')
+
+    def load_pickle(self, path):
+        return pd.read_pickle(path)
 
 if __name__ == '__main__':
 

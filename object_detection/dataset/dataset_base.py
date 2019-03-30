@@ -1,12 +1,13 @@
 import pandas as pd
 from sklearn.model_selection import train_test_split
+from object_detection.config.config_reader import ConfigReader
 
 class DatasetBase(object):
     """
     Base class for datasets operation.
     """
 
-    def __init__(self, config):
+    def __init__(self, config: ConfigReader):
         self.config = config
 
         self.df = pd.DataFrame()
@@ -26,6 +27,12 @@ class DatasetBase(object):
 
         self.train_df = train
         self.test_df = test
+
+    def set_train_df(self, df):
+        self.train_df = df
+
+    def set_test_df(self, df):
+        self.test_df = df
 
     def train_dataset(self):
         return self.train_df

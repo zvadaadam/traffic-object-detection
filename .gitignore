@@ -181,4 +181,8 @@ yolo_dataset.csv
 
 yolo_dataset.pkl
 
+object_detection/udacity_dataset.pkl
+object_detection/udacity_dataset_500.pkl
+
+tensorboard/
 
