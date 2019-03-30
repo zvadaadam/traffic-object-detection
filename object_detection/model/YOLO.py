@@ -1,10 +1,10 @@
 import tensorflow as tf
 import numpy as np
-from object_detection.model.base_model import ModelBase
+from object_detection.model.cnn_model import CNNModel
 from object_detection.config.config_reader import ConfigReader
 
 
-class YOLO(ModelBase):
+class YOLO(CNNModel):
 
     def __init__(self, config: ConfigReader):
         super(YOLO, self).__init__(config)
@@ -33,8 +33,6 @@ class YOLO(ModelBase):
         self.loss = self.yolo_loss(yolo_output, y)
 
         self.opt = self.optimizer(self.loss)
-
-        self.acc = self.accuracy(self.logits, y)
 
 
     def yolo(self, input):
@@ -218,12 +216,12 @@ class YOLO(ModelBase):
     def optimizer(self, loss):
         return tf.train.AdamOptimizer().minimize(loss)
 
-    def accuracy(self, logits, y):
-        with tf.name_scope('loss'):
-            acc = tf.equal(tf.argmax(logits, axis=1), tf.argmax(y, axis=1))
-            acc = tf.reduce_mean(tf.cast(acc, tf.float32))
-
-        return acc
+    # def accuracy(self, logits, y):
+    #     with tf.name_scope('loss'):
+    #         acc = tf.equal(tf.argmax(logits, axis=1), tf.argmax(y, axis=1))
+    #         acc = tf.reduce_mean(tf.cast(acc, tf.float32))
+    #
+    #     return acc
 
     def cord_loss(self, label, pred, lambda_cord=5):
         # INPUT: (?, grid_size, grid_size, bB*5 + num_classes)

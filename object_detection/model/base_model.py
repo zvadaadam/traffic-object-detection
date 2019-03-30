@@ -3,55 +3,84 @@ from object_detection.config.config_reader import ConfigReader
 
 
 class ModelBase(object):
+    """
+    Base class for Tensorflow model
+    """
 
     def __init__(self, config: ConfigReader):
+        """
+        Initializer of BaseModel object
+        :param ConfigReadef config: config reader object
+        """
         self.config = config
+        # init the global step
+        self.init_global_step()
+        # init the epoch counter
+        self.init_cur_epoch()
 
-        self.loss = None
-        self.acc = None
-        self.opt = None
-        self.logits = None
-        self.x = None
-        self.y = None
+        self.init_placeholders()
 
 
-    def normalization(self, x, radius, alpha, beta, name, bias=1.0):
-        return tf.nn.local_response_normalization(x, depth_radius=radius, alpha=alpha, beta=beta,
-                                                  bias=bias, name=name)
+    def save(self, session, global_step=None, write_meta_graph=True):
+        """
+        Saves the current trained model
 
-    def conv(self, inputs, filter_height, filter_width, num_filters,
-             stride_x, stride_y, padding, scope_name='conv'):
-        with tf.variable_scope(scope_name, reuse=tf.AUTO_REUSE) as scope:
-            input_channels = inputs.shape[-1]
+        :param tf.session session: tensorflow session
+        :param tf.Variable(int) global_step: global step of the training
+        :param bool write_meta_graph: flag for whether to save the computational graph model
+        """
+        save_path = self.config.trained_model_path() + self.config.model_description()
 
-            weights = tf.get_variable('weights', [filter_height, filter_width,
-                                                  input_channels, num_filters],
-                                      initializer=tf.truncated_normal_initializer())
+        self.saver.save(session, save_path, global_step=global_step or self.global_step_tensor,
+                        write_meta_graph=write_meta_graph)
 
-            biases = tf.get_variable('biases', [num_filters], initializer=tf.random_normal_initializer())
+    def load(self, session, model_path=None):
+        """
 
-            conv = tf.nn.conv2d(inputs, weights, strides=[1, stride_y, stride_x, 1],
-                                padding=padding)
+        :param tf.session session: tensorflow session
+        :param model_path:
+        :return:
+        """
 
-        return tf.nn.leaky_relu(conv + biases, name=scope.name)
+        if model_path != None:
+            self.saver.restore(session, model_path)
 
-    def max_pool(self, inputs, filter_height, filter_width,
-                 stride_x, stride_y, padding='VALID', scope_name='pool'):
-        with tf.variable_scope(scope_name, reuse=tf.AUTO_REUSE) as scope:
-            pool = tf.nn.max_pool(inputs, ksize=[1, filter_height, filter_width, 1],
-                                  strides=[1, stride_y, stride_x, 1],
-                                  padding=padding)
-        return pool
+        latest_checkpoint = tf.train.latest_checkpoint(self.config.trained_model_path())
+        if latest_checkpoint:
+            print("Loading model checkpoint {} ...\n".format(latest_checkpoint))
+            self.saver.restore(session, latest_checkpoint)
+            print("Model loaded")
 
-    def fully_connected(self, inputs, num_outputs, scope_name='fully_conncted'):
+    def init_cur_epoch(self):
+        """
+        Initialize a Tensorflow variable to use it as epoch counter
+        """
+        with tf.variable_scope('cur_epoch'):
+            self.cur_epoch_tensor = tf.Variable(0, trainable=False, name='cur_epoch')
+            self.increment_cur_epoch_tensor = tf.assign(self.cur_epoch_tensor, self.cur_epoch_tensor + 1)
 
-        with tf.variable_scope(scope_name, reuse=tf.AUTO_REUSE) as scope:
-            input_dim = inputs.shape[-1]
+    def init_global_step(self):
+        """
+        Initialize a tensorflow variable to use it as global step counter
+        """
+        # DON'T forget to add the global step tensor to the tensorflow trainer
+        with tf.variable_scope('global_step'):
+            self.global_step_tensor = tf.Variable(0, trainable=False, name='global_step')
+            self.increment_global_step_tensor = tf.assign(self.global_step_tensor, self.global_step_tensor + 1)
 
-            w = tf.get_variable('weights', [input_dim, num_outputs],
-                                initializer=tf.truncated_normal_initializer())
-            b = tf.get_variable('biases', [num_outputs],
-                                initializer=tf.constant_initializer(0.0))
-            logit = tf.matmul(inputs, w) + b
+    def init_saver(self, max_to_keep=None):
+        """
+        Initialize a tensorflow saver for saving trained models
+        :param int max_to_keep: max number of kept checkpoints for particular model
+        """
+        self.saver = tf.train.Saver(max_to_keep=max_to_keep)
 
-        return logit
+    def build_model(self):
+        """
+        Function to be overridden in child class which build the whole tensorflow computational graph (model)
+        """
+        raise NotImplementedError
+
+    def init_placeholders(self):
+        raise NotImplementedError
+
