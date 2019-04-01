@@ -36,14 +36,14 @@ class ObjectTrainer(BaseTrain):
 
         mean_loss /= num_iterations
 
-        return mean_loss
+        return mean_loss, 0
 
 
     def train_step(self):
 
-        _, loss = self.session.run([self.model.opt, self.model.loss], feed_dict={
-                            self.iterator.handle_placeholder: self.train_handle
-                      })
+        _, loss = self.session.run([self.model.opt, self.model.loss],
+            feed_dict={self.iterator.handle_placeholder: self.train_handle}
+        )
 
         self.session.run(self.model.increment_global_step_tensor)
 
@@ -51,11 +51,12 @@ class ObjectTrainer(BaseTrain):
 
     def test_step(self):
 
-        loss = self.session.run([self.model.loss], feed_dict={
-                            self.iterator.handle_placeholder: self.test_handle
-                      })
+        loss, loss_cord, loss_confidence, loss_class = self.session.run(
+            [self.model.loss, self.model.loss_cord, self.model.loss_confidence, self.model.loss_class],
+            feed_dict={self.iterator.handle_placeholder: self.test_handle}
+        )
 
-        return loss
+        return loss, loss_cord, loss_confidence, loss_class
 
 
     def log_progress(self, input, num_iteration, mode):
@@ -70,7 +71,10 @@ class ObjectTrainer(BaseTrain):
 
         t_bar.set_postfix(
             train_loss='{:05.3f}'.format(train_output[0]),
-            train_acc='{:05.3f}'.format(train_output[1]),
+            #train_acc='{:05.3f}'.format(train_output[1]),
             test_loss='{:05.3f}'.format(test_output[0]),
-            test_acc='{:05.3f}'.format(test_output[1]),
+            test_loss_cord='{:05.3f}'.format(test_output[1]),
+            test_loss_coenfience='{:05.3f}'.format(test_output[2]),
+            test_loss_class='{:05.3f}'.format(test_output[3]),
+            #test_acc='{:05.3f}'.format(test_output[1]),
         )

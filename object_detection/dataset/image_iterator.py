@@ -21,7 +21,7 @@ class ImageIterator(object):
 
         dataset = tf.data.Dataset.from_tensor_slices((self.model.x, self.model.y))
 
-        dataset = dataset.batch(self.config.batch_size()).repeat()
+        dataset = dataset.batch(self.config.batch_size(), drop_remainder=True).repeat()
 
         dataset_iterator = dataset.make_initializable_iterator()
 
@@ -46,8 +46,14 @@ class ImageIterator(object):
         images = np.array(df['image'].values.tolist())
         labels = np.array(df['label'].values.tolist())
 
-        print(images.shape)
-        print(labels.shape)
+        # TODO: MOVE NORMALIZATION
+        for i in range(0, len(images)):
+            img = images[i]
+            img = img.astype('float32')
+            if img.max() > 1.0:
+                img /= 255.0
+
+            images[i] = img
 
         feed = {
             self.model.x: images,
@@ -56,3 +62,11 @@ class ImageIterator(object):
         self.session.run(dataset_iterator.initializer, feed_dict=feed)
 
         return inputs, dataset_handle
+
+    def normalization(self, img):
+
+        img_norm = img - img.mean()
+
+        img_norm = img_norm / img_norm.max()
+
+        return img_norm

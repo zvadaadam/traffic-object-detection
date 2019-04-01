@@ -23,18 +23,25 @@ class CNNModel(ModelBase):
     def conv(self, inputs, filter_height, filter_width, num_filters,
              stride_x, stride_y, padding, scope_name='conv'):
         with tf.variable_scope(scope_name, reuse=tf.AUTO_REUSE) as scope:
-            input_channels = inputs.shape[-1]
+            # input_channels = inputs.shape[-1]
+            #
+            # weights = tf.get_variable('weights', [filter_height, filter_width,
+            #                                       input_channels, num_filters],
+            #                           initializer=tf.truncated_normal_initializer())
+            #
+            # biases = tf.get_variable('biases', [num_filters], initializer=tf.random_normal_initializer())
+            #
+            # conv = tf.nn.conv2d(inputs, weights, strides=[1, stride_y, stride_x, 1],
+            #                     padding=padding)
 
-            weights = tf.get_variable('weights', [filter_height, filter_width,
-                                                  input_channels, num_filters],
-                                      initializer=tf.truncated_normal_initializer())
+            x = tf.layers.conv2d(inputs, kernel_size=(filter_height, filter_width), filters=num_filters,
+                                 strides=(stride_x, stride_y), padding=padding,
+                                 kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
+                                 bias_initializer=tf.zeros_initializer())
+            x = tf.layers.batch_normalization(x, training=True, momentum=0.99, epsilon=0.001, center=True,
+                                              scale=True)
 
-            biases = tf.get_variable('biases', [num_filters], initializer=tf.random_normal_initializer())
-
-            conv = tf.nn.conv2d(inputs, weights, strides=[1, stride_y, stride_x, 1],
-                                padding=padding)
-
-        return tf.nn.leaky_relu(conv + biases, name=scope.name)
+        return tf.nn.leaky_relu(x, name=scope.name, alpha=0.1)
 
     def max_pool(self, inputs, filter_height, filter_width,
                  stride_x, stride_y, padding='VALID', scope_name='pool'):

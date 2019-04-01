@@ -176,7 +176,7 @@ class YOLO(CNNModel):
 
         # flatten cnn output for fully connected layer
         feature_dim = conv.get_shape()[1:4].num_elements()
-        cnn_output = tf.reshape(conv, [-1, feature_dim])
+        cnn_output = tf.reshape(conv, [self.config.batch_size(), feature_dim])
         print('Flatten: {}'.format(cnn_output.get_shape()))
 
         # LAYER 6
@@ -204,17 +204,25 @@ class YOLO(CNNModel):
 
         # TODO: we ASSUME B = 1
 
-        loss_cord = self.cord_loss(label, predict, lambda_cord)
-        loss_confidence = self.confidence_loss(label, predict, lambda_noobj)
-        loss_class = self.classes_loss(label, predict)
+        with tf.name_scope('loss'):
+            loss_cord = self.cord_loss(label, predict, lambda_cord)
+            self.loss_cord = loss_cord
 
-        loss = tf.add(loss_cord, loss_confidence)
-        loss = tf.add(loss, loss_class)
+            loss_confidence = self.confidence_loss(label, predict, lambda_noobj)
+            self.loss_confidence = loss_confidence
+
+            loss_class = self.classes_loss(label, predict)
+            self.loss_class = loss_class
+
+            loss = tf.add(loss_cord, loss_confidence)
+            loss = tf.add(loss, loss_class)
 
         return loss
 
     def optimizer(self, loss):
-        return tf.train.AdamOptimizer().minimize(loss)
+        opt = tf.train.AdamOptimizer(learning_rate=0.0001).minimize(loss)
+
+        return opt
 
     # def accuracy(self, logits, y):
     #     with tf.name_scope('loss'):
@@ -229,7 +237,7 @@ class YOLO(CNNModel):
         # TODO: we ASSUME B = 1
 
         # always is 0 or 1
-        indicator_coord = tf.expand_dims(label[..., 4], axis=-1) # contains object(x>0) or does not contain object(x==0)
+
         #indicator_coord = tf.math.ceil(indicator_coord)
 
         # ---TESTING PURPOSE----
@@ -237,6 +245,8 @@ class YOLO(CNNModel):
         # print(indicator_coord.eval())
 
         with tf.name_scope('cord'):
+            # contains object(x>0) or does not contain object(x==0)
+            cord_mask = tf.expand_dims(label[..., 4], axis=-1)
 
             pred_cord = pred[..., 0:2]
             label_cord = label[..., 0:2]
@@ -244,57 +254,72 @@ class YOLO(CNNModel):
             pred_size = pred[..., 2:4]
             label_size = label[..., 2:4]
 
-            loss_cord = tf.multiply(indicator_coord, tf.square(pred_cord - label_cord))
-            loss_cord = tf.reduce_sum(loss_cord)
+            print(pred_cord.get_shape())
+            print(label_cord.get_shape())
 
-            loss_size = tf.multiply(indicator_coord, tf.square(pred_size - label_size))
-            loss_size = tf.reduce_sum(loss_size)
+            loss_cord = cord_mask * (pred_cord - label_cord)
+            loss_cord = tf.reduce_sum(tf.square(loss_cord), axis=[1, 2, 3]) * lambda_cord
+            loss_cord = tf.reduce_mean(loss_cord)
 
-            loss = tf.scalar_mul(lambda_cord, tf.add(loss_size, loss_cord))
+            loss_size = cord_mask * (pred_size - label_size)
+            loss_size = tf.reduce_sum(tf.square(loss_size), axis=[1, 2, 3]) * lambda_cord
+            loss_size = tf.reduce_mean(loss_size)
 
-        return loss
+            # loss_cord = tf.multiply(indicator_coord, tf.squared_difference(label_cord, pred_cord))
+            # loss_cord = tf.reduce_sum(loss_cord)
+            #
+            # loss_size = tf.multiply(indicator_coord, tf.squared_difference(label_size, pred_size))
+            # loss_size = tf.reduce_sum(loss_size)
+
+        return tf.add(loss_size, loss_cord)
 
     def confidence_loss(self, label, pred, lambda_noobj=0.5):
 
-        indicator_noobj = (1 - label[..., 4])
         # ---TESTING PURPOSE----
         # indicator_noobj = tf.dtypes.cast(indicator_noobj > 0.6, tf.float32)
         # print(indicator_noobj.eval())
         # ---TESTING PURPOSE----
 
-        indicator_obj = label[..., 4]
+
         # ---TESTING PURPOSE----
         # indicator_obj = tf.dtypes.cast(indicator_obj > 0.4, tf.float32)
         # print(indicator_obj.eval())
         # ---TESTING PURPOSE----
 
         with tf.name_scope('confidence'):
+            mask_obj = tf.expand_dims(label[..., 4], axis=-1)
 
-            confidence_label = label[..., 4]
-            confidence_pred = pred[..., 4]
+            mask_noobj = (1 - mask_obj)
 
-            loss_obj = tf.multiply(indicator_obj, tf.square(confidence_label - confidence_pred))
-            loss_obj = tf.reduce_sum(loss_obj)
+            confidence_label = tf.expand_dims(label[..., 4], axis=-1)
+            confidence_pred = tf.expand_dims(pred[..., 4], axis=-1)
 
-            loss_noobj = tf.multiply(indicator_noobj, tf.square(confidence_label - confidence_pred))
-            loss_noobj = tf.reduce_sum(loss_noobj)
-            loss_noobj = tf.scalar_mul(lambda_noobj, loss_noobj)
+            loss_obj = mask_obj * (confidence_pred - confidence_label)
+            loss_obj = tf.reduce_sum(tf.square(loss_obj), axis=[1, 2, 3])
+            loss_obj = tf.reduce_mean(loss_obj)
+
+            loss_noobj = mask_noobj * (confidence_pred - confidence_label)
+            loss_noobj = tf.reduce_sum(tf.square(loss_noobj), axis=[1, 2, 3]) * lambda_noobj
+            loss_noobj = tf.reduce_mean(loss_noobj)
 
         return tf.add(loss_obj, loss_noobj)
 
     def classes_loss(self, label, pred):
 
-        indicator_class = tf.expand_dims(label[..., 4], axis=-1)
         # ---TESTING PURPOSE----
         # indicator_class = tf.dtypes.cast(indicator_class > 0.6, tf.float32)
         # print(indicator_class.eval())
         # ---TESTING PURPOSE----
 
-        with tf.name_scope('confidence'):
+        with tf.name_scope('class'):
+            mask_class = tf.expand_dims(label[..., 4], axis=-1)
+
             class_label = label[..., 5:]
             class_pred = pred[..., 5:]
-            loss_class = tf.multiply(indicator_class, tf.square(class_label - class_pred))
-            loss_class = tf.reduce_sum(loss_class)
+
+            loss_class = mask_class * (class_pred - class_label)
+            loss_class = tf.reduce_sum(tf.square(loss_class), axis=[1, 2, 3])
+            loss_class = tf.reduce_mean(loss_class)
 
         return loss_class
 
@@ -327,11 +352,11 @@ if __name__ == '__main__':
 
     sess = tf.InteractiveSession()
 
-    num_classes = 10
+    num_classes = 5
     b = 1
 
-    y_pred = tf.convert_to_tensor(np.random.rand(16, 13, 13, (b*5) + num_classes), np.float32)
-    y_true = tf.convert_to_tensor(np.random.rand(16, 13, 13, (b*5) + num_classes), np.float32)
+    y_pred = tf.convert_to_tensor(np.random.rand(8, 7, 7, (b*5) + num_classes), np.float32)
+    y_true = tf.convert_to_tensor(np.random.rand(8, 7, 7, (b*5) + num_classes), np.float32)
 
     # test = tf.expand_dims(y_true[..., 4], axis=-1)
     #
@@ -341,10 +366,8 @@ if __name__ == '__main__':
     #
     # print(test2.eval())
 
-    yolo = YOLO(sess, cofig=None)
+    config_path = '/Users/adam.zvada/Documents/Dev/object-detection/config/test.yml'
 
-    #print(yolo.cord_loss(label=y_true, pred=y_pred).eval())
+    yolo = YOLO(ConfigReader(config_path))
 
-    print(yolo.confidence_loss(label=y_true, pred=y_pred).eval())
-
-    # yolo.loss(predict=y_pred, label=y_true)
+    print(yolo.yolo_loss(predict=y_pred, label=y_true).eval())

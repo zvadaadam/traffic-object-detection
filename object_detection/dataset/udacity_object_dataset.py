@@ -14,6 +14,8 @@ class UdacityObjectDataset(DatasetBase):
         super(UdacityObjectDataset, self).__init__(config)
 
         self.load_dataset()
+
+        print(self.df.isnull().values.any())
         #self.load_dataset_from_pickle('udacity_dataset_500.pkl')
 
     def load_dataset_from_pickle(self, path):
