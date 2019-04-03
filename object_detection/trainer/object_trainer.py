@@ -51,10 +51,12 @@ class ObjectTrainer(BaseTrain):
 
     def test_step(self):
 
-        loss, loss_cord, loss_confidence, loss_class = self.session.run(
-            [self.model.loss, self.model.loss_cord, self.model.loss_confidence, self.model.loss_class],
+        loss, loss_cord, loss_confidence, loss_class, box = self.session.run(
+            [self.model.loss, self.model.loss_cord, self.model.loss_confidence, self.model.loss_class, self.model.boxes],
             feed_dict={self.iterator.handle_placeholder: self.test_handle}
         )
+
+        print(box)
 
         return loss, loss_cord, loss_confidence, loss_class
 

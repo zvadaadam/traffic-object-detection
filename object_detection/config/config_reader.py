@@ -82,6 +82,9 @@ class ConfigReader(object):
     def num_iterations(self):
         return self.hyperparams['num_iterations']
 
+    def learning_rate(self):
+        return self.hyperparams['learning_rate']
+
     # --MODEL--
 
     def tensorboard_path(self):

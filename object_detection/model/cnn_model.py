@@ -38,8 +38,8 @@ class CNNModel(ModelBase):
                                  strides=(stride_x, stride_y), padding=padding,
                                  kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
                                  bias_initializer=tf.zeros_initializer())
-            x = tf.layers.batch_normalization(x, training=True, momentum=0.99, epsilon=0.001, center=True,
-                                              scale=True)
+            # x = tf.layers.batch_normalization(x, training=True, momentum=0.99, epsilon=0.001, center=True,
+            #                                   scale=True)
 
         return tf.nn.leaky_relu(x, name=scope.name, alpha=0.1)
 

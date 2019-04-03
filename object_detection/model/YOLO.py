@@ -34,6 +34,9 @@ class YOLO(CNNModel):
 
         self.opt = self.optimizer(self.loss)
 
+        boxes, scores, classes = self.eval_boxes(yolo_output)
+
+        self.boxes = boxes
 
     def yolo(self, input):
         print('Input: {}'.format(input.get_shape()))
@@ -346,6 +349,69 @@ class YOLO(CNNModel):
     #     # return the intersection over union value
     #     return iou
 
+    def eval_boxes(self, y_pred):
+
+        boxes, scores, classes = self.filter_boxes(y_pred)
+
+        return self.non_max_suppression(boxes, scores, classes)
+
+
+    def filter_boxes(self, y_pred, threshold=0.6):
+        """Filters YOLO boxes by thresholding on object and class confidence."""
+
+        box_confidence = tf.expand_dims(y_pred[..., 4], axis=-1)
+        boxes = y_pred[..., :4]
+        box_class_probs = y_pred[..., :5]
+
+        # Compute box scores
+        box_scores = box_confidence * box_class_probs
+
+        # index of highest box score (return vector?)
+        box_classes = tf.argmax(box_scores, axis=-1)
+
+        # value of the highest box score (return vector?)
+        box_class_scores = tf.reduce_max(box_scores, axis=-1)
+
+        prediction_mask = (box_class_scores >= threshold)
+
+        boxes = tf.boolean_mask(boxes, prediction_mask)
+        scores = tf.boolean_mask(box_class_scores, prediction_mask)
+        classes = tf.boolean_mask(box_classes, prediction_mask)
+
+        return boxes, scores, classes
+
+    def min_max_cord(self, boxes):
+
+        box_xy = boxes[..., 0:2]
+        box_wh = boxes[..., 2:4]
+
+        box_mins = box_xy - (box_wh / 2.)
+        box_maxes = box_xy + (box_wh / 2.)
+
+        return tf.concat([
+            box_mins[..., 1:2],  # y_min
+            box_mins[..., 0:1],  # x_min
+            box_maxes[..., 1:2],  # y_max
+            box_maxes[..., 0:1]  # x_max
+        ], axis=-1)
+
+    def non_max_suppression(self, boxes, scores, classes, max_boxes=30, score_threshold=0.3, iou_threshold=0.5):
+        """ Applying NMS, optimized box location for same classes"""
+        max_boxes_tensor = tf.constant(max_boxes, dtype='int32')
+
+        #tf.get_session().run(tf.variables_initializer([max_boxes_tensor]))
+
+        boxes = self.min_max_cord(boxes)
+
+        nms_index = tf.image.non_max_suppression(boxes, scores, max_boxes_tensor,
+                                                 iou_threshold=iou_threshold, score_threshold=score_threshold)
+
+        boxes = tf.gather(boxes, nms_index)
+        scores = tf.gather(scores, nms_index)
+        classes = tf.gather(classes, nms_index)
+
+        return boxes, scores, classes
+
 
 
 if __name__ == '__main__':
@@ -370,4 +436,6 @@ if __name__ == '__main__':
 
     yolo = YOLO(ConfigReader(config_path))
 
-    print(yolo.yolo_loss(predict=y_pred, label=y_true).eval())
+    print(yolo.non_max_suppression(y_pred=y_pred).eval())
+
+    #print(yolo.yolo_loss(predict=y_pred, label=y_true).eval())

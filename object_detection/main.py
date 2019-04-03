@@ -18,7 +18,7 @@ def main_train(config: ConfigReader):
 
     with tf.Session() as session:
 
-        #session = tf_debug.TensorBoardDebugWrapperSession(session, 'prga-004810.local:6064', send_traceback_and_source_code=False)
+        #session = tf_debug.TensorBoardDebugWrapperSession(session, 'e-77-178.eduroam.fit.cvut.cz:6064', send_traceback_and_source_code=False)
 
         trainer = ObjectTrainer(session, model, dataset, config)
 
