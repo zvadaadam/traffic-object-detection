@@ -9,6 +9,11 @@ class YOLO(CNNModel):
     def __init__(self, config: ConfigReader):
         super(YOLO, self).__init__(config)
 
+        self.boxes = None
+        self.scores = None
+        self.classes = None
+        self.img = None
+
         self.init_placeholders()
 
     def init_placeholders(self):
@@ -22,6 +27,24 @@ class YOLO(CNNModel):
         self.x = tf.placeholder(tf.float32, [None, image_height, image_width, 3])
         self.y = tf.placeholder(tf.float32, [None, grid_size, grid_size, (boxes_per_cell*5) + num_classes])
 
+    def get_tensor_boxes(self):
+        return self.boxes
+
+    def get_tensor_scores(self):
+        return self.scores
+
+    def get_tensor_classes(self):
+        return self.classes
+
+    def get_optimizer(self):
+        return self.opt
+
+    def get_loss(self):
+        return self.loss
+
+    def get_image(self):
+        return self.img
+
     def build_model(self, input):
 
         x, y = input['x'], input['y']
@@ -34,9 +57,14 @@ class YOLO(CNNModel):
 
         self.opt = self.optimizer(self.loss)
 
-        boxes, scores, classes = self.eval_boxes(yolo_output)
+        with tf.variable_scope('eval'):
+            boxes, scores, classes = self.eval_boxes(yolo_output)
 
-        self.boxes = boxes
+            self.boxes = boxes
+            self.scores = scores
+            self.classes = classes
+
+            self.img = x
 
     def yolo(self, input):
         print('Input: {}'.format(input.get_shape()))
@@ -380,8 +408,24 @@ class YOLO(CNNModel):
 
         return boxes, scores, classes
 
-    def min_max_cord(self, boxes):
+    def non_max_suppression(self, boxes, scores, classes, max_boxes=30, score_threshold=0.3, iou_threshold=0.5):
+        """ Applying NMS, optimized box location for same classes"""
 
+        max_boxes_tensor = tf.constant(max_boxes, dtype='int32')
+
+        # convert to from (x,y,w,h) to (y1, x1, y2, y2) cause of nms
+        boxes = self.convert_to_min_max_cord(boxes)
+
+        nms_index = tf.image.non_max_suppression(boxes, scores, max_boxes_tensor,
+                                                 iou_threshold=iou_threshold, score_threshold=score_threshold)
+
+        boxes = tf.gather(boxes, nms_index)
+        scores = tf.gather(scores, nms_index)
+        classes = tf.gather(classes, nms_index)
+
+        return boxes, scores, classes
+
+    def convert_to_min_max_cord(self, boxes):
         box_xy = boxes[..., 0:2]
         box_wh = boxes[..., 2:4]
 
@@ -394,23 +438,6 @@ class YOLO(CNNModel):
             box_maxes[..., 1:2],  # y_max
             box_maxes[..., 0:1]  # x_max
         ], axis=-1)
-
-    def non_max_suppression(self, boxes, scores, classes, max_boxes=30, score_threshold=0.3, iou_threshold=0.5):
-        """ Applying NMS, optimized box location for same classes"""
-        max_boxes_tensor = tf.constant(max_boxes, dtype='int32')
-
-        #tf.get_session().run(tf.variables_initializer([max_boxes_tensor]))
-
-        boxes = self.min_max_cord(boxes)
-
-        nms_index = tf.image.non_max_suppression(boxes, scores, max_boxes_tensor,
-                                                 iou_threshold=iou_threshold, score_threshold=score_threshold)
-
-        boxes = tf.gather(boxes, nms_index)
-        scores = tf.gather(scores, nms_index)
-        classes = tf.gather(classes, nms_index)
-
-        return boxes, scores, classes
 
 
 

@@ -1,4 +1,5 @@
 import tensorflow as tf
+from tqdm import trange
 from object_detection.trainer.base_trainer import BaseTrain
 from object_detection.dataset.image_iterator import ImageIterator
 from object_detection.utils.tensor_logger import TensorLogger
@@ -22,6 +23,52 @@ class ObjectTrainer(BaseTrain):
         _, test_handle = self.iterator.create_iterator(mode='test')
 
         return model_train_inputs, train_handle, test_handle
+
+    def train(self):
+        """
+        Main training method.
+        It creates tf.Dataset iterator from the Dataset and builds the tensorflow model.
+        It runs the training epoches while logging the progress to Tensorboard.
+        It has the capabilities to restore and save trained models.
+        """
+
+        model_train_inputs, train_handle, test_handle = self.dataset_iterator()
+
+        self.train_handle = train_handle
+        self.test_handle = test_handle
+
+        self.model.build_model(model_train_inputs)
+
+        self.init = tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())
+        self.session.run(self.init)
+
+        self.model.init_saver(max_to_keep=2)
+
+        # restore latest checkpoint model
+        if self.config.restore_trained_model() != None:
+            self.model.load(self.session, self.config.restore_trained_model())
+
+        # tqdm progress bar looping through all epoches
+        t_epoches = trange(self.model.cur_epoch_tensor.eval(self.session), self.config.num_epoches() + 1, 1,
+                           desc='Training {}'.format(self.config.model_name()))
+        for cur_epoch in t_epoches:
+            # run epoch training
+            train_output = self.train_epoch(cur_epoch)
+            # run model on test set
+            test_output = self.test_step()
+
+            self.log_progress(train_output, num_iteration=cur_epoch * self.config.num_iterations(), mode='train')
+            self.log_progress(test_output, num_iteration=cur_epoch * self.config.num_iterations(), mode='test')
+
+            self.update_progress_bar(t_epoches, train_output, test_output)
+
+            # increase epoche counter
+            self.session.run(self.model.increment_cur_epoch_tensor)
+
+            self.model.save(self.session, write_meta_graph=False)
+
+        # finale save model - creates checkpoint
+        self.model.save(self.session, write_meta_graph=True)
 
     def train_epoch(self, cur_epoche):
 
@@ -51,12 +98,20 @@ class ObjectTrainer(BaseTrain):
 
     def test_step(self):
 
-        loss, loss_cord, loss_confidence, loss_class, box = self.session.run(
-            [self.model.loss, self.model.loss_cord, self.model.loss_confidence, self.model.loss_class, self.model.boxes],
+        loss, loss_cord, loss_confidence, loss_class, boxes, scores, classes = self.session.run(
+            [self.model.get_loss(),
+             self.model.loss_cord,
+             self.model.loss_confidence,
+             self.model.loss_class,
+             self.model.get_tensor_boxes(),
+             self.model.get_tensor_scores(),
+             self.model.get_tensor_classes()],
             feed_dict={self.iterator.handle_placeholder: self.test_handle}
         )
 
-        print(box)
+        print(boxes)
+        print(scores)
+        print(classes)
 
         return loss, loss_cord, loss_confidence, loss_class
 
