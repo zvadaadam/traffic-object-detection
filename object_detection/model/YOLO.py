@@ -45,6 +45,9 @@ class YOLO(CNNModel):
     def get_image(self):
         return self.img
 
+    def get_labels(self):
+        return self.labels
+
     def build_model(self, input):
 
         x, y = input['x'], input['y']
@@ -65,6 +68,8 @@ class YOLO(CNNModel):
             self.classes = classes
 
             self.img = x
+
+            self.labels = y
 
     def yolo(self, input):
         print('Input: {}'.format(input.get_shape()))
@@ -292,7 +297,8 @@ class YOLO(CNNModel):
             loss_cord = tf.reduce_sum(tf.square(loss_cord), axis=[1, 2, 3]) * lambda_cord
             loss_cord = tf.reduce_mean(loss_cord)
 
-            loss_size = cord_mask * (pred_size - label_size)
+            loss_size = cord_mask * (tf.sqrt(tf.abs(pred_size)) - tf.sqrt(label_size))
+            #loss_size = cord_mask * (pred_size - label_size)
             loss_size = tf.reduce_sum(tf.square(loss_size), axis=[1, 2, 3]) * lambda_cord
             loss_size = tf.reduce_mean(loss_size)
 
@@ -322,8 +328,10 @@ class YOLO(CNNModel):
 
             mask_noobj = (1 - mask_obj)
 
+            pred_iou = self.iou(label[..., 0:4], pred[..., 0:4])
+
             confidence_label = tf.expand_dims(label[..., 4], axis=-1)
-            confidence_pred = tf.expand_dims(pred[..., 4], axis=-1)
+            confidence_pred = tf.expand_dims(pred[..., 4], axis=-1) * pred_iou
 
             loss_obj = mask_obj * (confidence_pred - confidence_label)
             loss_obj = tf.reduce_sum(tf.square(loss_obj), axis=[1, 2, 3])
@@ -334,6 +342,32 @@ class YOLO(CNNModel):
             loss_noobj = tf.reduce_mean(loss_noobj)
 
         return tf.add(loss_obj, loss_noobj)
+
+    def iou(self, label_box, pred_box):
+        """ same as `bbox_iou_corner_xy', except that we have
+            center_x, center_y, w, h instead of x1, y1, x2, y2 """
+
+        x11, y11, w11, h11 = tf.split(pred_box, 4, axis=3)
+        x21, y21, w21, h21 = tf.split(label_box, 4, axis=3)
+
+        xi1 = tf.maximum(x11, tf.transpose(x21))
+        xi2 = tf.minimum(x11, tf.transpose(x21))
+
+        yi1 = tf.maximum(y11, tf.transpose(y21))
+        yi2 = tf.minimum(y11, tf.transpose(y21))
+
+        wi = w11 / 2.0 + tf.transpose(w21 / 2.0)
+        hi = h11 / 2.0 + tf.transpose(h21 / 2.0)
+
+        inter_area = tf.maximum(wi - (xi1 - xi2 + 1), 0) \
+                     * tf.maximum(hi - (yi1 - yi2 + 1), 0)
+
+        bboxes1_area = w11 * h11
+        bboxes2_area = w21 * h21
+
+        union = (bboxes1_area + tf.transpose(bboxes2_area)) - inter_area
+
+        return inter_area / (union + 0.0001)
 
     def classes_loss(self, label, pred):
 
@@ -353,29 +387,6 @@ class YOLO(CNNModel):
             loss_class = tf.reduce_mean(loss_class)
 
         return loss_class
-
-    # def bb_intersection_over_union(self, boxA, boxB):
-    #     # determine the (x, y)-coordinates of the intersection rectangle
-    #     xA = max(boxA[0], boxB[0])
-    #     yA = max(boxA[1], boxB[1])
-    #     xB = min(boxA[2], boxB[2])
-    #     yB = min(boxA[3], boxB[3])
-    #
-    #     # compute the area of intersection rectangle
-    #     interArea = max(0, xB - xA + 1) * max(0, yB - yA + 1)
-    #
-    #     # compute the area of both the prediction and ground-truth
-    #     # rectangles
-    #     boxAArea = (boxA[2] - boxA[0] + 1) * (boxA[3] - boxA[1] + 1)
-    #     boxBArea = (boxB[2] - boxB[0] + 1) * (boxB[3] - boxB[1] + 1)
-    #
-    #     # compute the intersection over union by taking the intersection
-    #     # area and dividing it by the sum of prediction + ground-truth
-    #     # areas - the interesection area
-    #     iou = interArea / float(boxAArea + boxBArea - interArea)
-    #
-    #     # return the intersection over union value
-    #     return iou
 
     def eval_boxes(self, y_pred):
 
@@ -463,6 +474,4 @@ if __name__ == '__main__':
 
     yolo = YOLO(ConfigReader(config_path))
 
-    print(yolo.non_max_suppression(y_pred=y_pred).eval())
-
-    #print(yolo.yolo_loss(predict=y_pred, label=y_true).eval())
+    print(yolo.yolo_loss(predict=y_pred, label=y_true).eval())

@@ -41,9 +41,7 @@ class ImageIterator(object):
         else:
             df = self.dataset.test_dataset()
 
-        print(df.info())
-
-        images = np.array(df['image'].values.tolist())
+        images = np.array(df['image'].values.tolist(), dtype=np.float32)
         labels = np.array(df['label'].values.tolist())
 
         # TODO: MOVE NORMALIZATION

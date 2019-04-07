@@ -1,9 +1,12 @@
 import tensorflow as tf
+import numpy as np
 from tqdm import trange
 from object_detection.trainer.base_trainer import BaseTrain
 from object_detection.dataset.image_iterator import ImageIterator
 from object_detection.utils.tensor_logger import TensorLogger
 from object_detection.config.config_reader import ConfigReader
+from object_detection.utils import image_utils
+from object_detection.utils import yolo_utils
 
 
 class ObjectTrainer(BaseTrain):
@@ -98,20 +101,35 @@ class ObjectTrainer(BaseTrain):
 
     def test_step(self):
 
-        loss, loss_cord, loss_confidence, loss_class, boxes, scores, classes = self.session.run(
+        loss, loss_cord, loss_confidence, loss_class, boxes, scores, classes, image, labels = self.session.run(
             [self.model.get_loss(),
              self.model.loss_cord,
              self.model.loss_confidence,
              self.model.loss_class,
              self.model.get_tensor_boxes(),
              self.model.get_tensor_scores(),
-             self.model.get_tensor_classes()],
+             self.model.get_tensor_classes(),
+             self.model.get_image(),
+             self.model.get_labels()],
             feed_dict={self.iterator.handle_placeholder: self.test_handle}
         )
 
-        print(boxes)
-        print(scores)
-        print(classes)
+        # -----------TESTING-----------
+        label_boxes = []
+        for label in np.reshape(labels[0], newshape=[49, 10]):
+            if label[0] != 0.0 and label[1] != 0.0:
+                label_boxes.append(label)
+
+
+        x_min, y_min, x_max, y_max = yolo_utils.from_yolo_to_cord(boxes[0], image[0].shape)
+        image_utils.add_bb_to_img(image[0], x_min, y_min, x_max, y_max)
+        print(f'Predicted: {x_min}, {y_min}, {x_max}, {y_max}')
+
+        x_min, y_min, x_max, y_max = yolo_utils.from_yolo_to_cord(label_boxes[0][0:4], image[0].shape)
+        image_utils.plot_img(image_utils.add_bb_to_img(image[0], x_min, y_min, x_max, y_max))
+        print(f'Label: {x_min}, {y_min}, {x_max}, {y_max}')
+        # -----------TESTING-----------
+
 
         return loss, loss_cord, loss_confidence, loss_class
 

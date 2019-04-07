@@ -1,6 +1,7 @@
 from object_detection.utils import image_utils
 
-def from_cord_to_yolo(x1, y1, x2, y2, img_shape):
+
+def to_yolo_cords(x1, y1, x2, y2, img_shape, relative_cords=False):
 
     image_height, image_width, _ = img_shape
 
@@ -15,35 +16,49 @@ def from_cord_to_yolo(x1, y1, x2, y2, img_shape):
     xmax, xmin = sorting(x1, x2)
     ymax, ymin = sorting(y1, y2)
 
-    dw = 1. / image_width
-    dh = 1. / image_height
-
     x = (xmin + xmax) / 2.0
     y = (ymin + ymax) / 2.0
 
     w = xmax - xmin
     h = ymax - ymin
 
-    x = x * dw
-    w = w * dw
+    if relative_cords:
+        dw = 1. / image_width
+        dh = 1. / image_height
 
-    y = y * dh
-    h = h * dh
+        x = x * dw
+        w = w * dw
 
-    return (x, y, w, h)
+        y = y * dh
+        h = h * dh
+
+    return x, y, w, h
 
 
 def from_yolo_to_cord(box, shape):
+    """
+    Method converts YOLO box cords (x, y, w, h) to corner box cords (x_min, y_min, x_max, y_max)
+    :param box: (x, y, w, h)
+    :param shape: image shape (w, h, 3)
+    :return: (x_min, y_min, x_max, y_max)
+    """
 
-    img_h, img_w, _ = shape
+    image_height, image_width, _ = shape
+    x, y, w, h = box[0], box[1], box[2], box[3]
 
     # x1, y1 = ((x + witdth)/2)*img_width, ((y + height)/2)*img_height
-    x1, y1 = int((box[0] + box[2] / 2) * img_w), int((box[1] + box[3] / 2) * img_h)
+    #x1, y1 = int((box[0] + box[2] / 2) * img_w), int((box[1] + box[3] / 2) * img_h)
 
     # x2, y2 = ((x - witdth)/2)*img_width, ((y - height)/2)*img_height
-    x2, y2 = int((box[0] - box[2] / 2) * img_w), int((box[1] - box[3] / 2) * img_h)
+    #2, y2 = int((box[0] - box[2] / 2) * img_w), int((box[1] - box[3] / 2) * img_h)
 
-    return x1, y1, x2, y2
+    x_min = int((x - w/2) * image_width)
+    y_min = int((y - h/2) * image_height)
+
+    x_max = int((x + w/2) * image_width)
+    y_max = int((y + h/2) * image_height)
+
+    return x_min, y_min, x_max, y_max
 
 
 
@@ -57,24 +72,41 @@ def img_to_yolo_shape(img):
 
     return img
 
-def yolo_cords(cords, image_shape):
 
+def resize_cords(cords, image_shape, new_image_shape, relative_cords=False):
+    """
+    Resize the coordinate to new image shape
+    :param cords: [(x, y, w, h)]
+    :param image_shape: (x, y, z)
+    :param new_image_shape: (x, y, z)
+    :param relative_cords: Flag for converting the coordinate to interval <0,1>
+    :return: [(x', y', w', h')]
+    """
     # TODO: move
-    yolo_image_height = 448
-    yolo_image_width = 448
-
+    new_image_height, new_image_width, _ = new_image_shape
     image_height, image_width, _ = image_shape
 
-    ratio_height = yolo_image_height / image_height
-    ratio_width = yolo_image_width / image_width
+    ratio_height = new_image_height / image_height
+    ratio_width = new_image_width / image_width
+
+    if relative_cords:
+        dh = 1. / new_image_height
+        dw = 1. / new_image_width
+    else:
+        dh = 1
+        dw = 1
 
     new_cords = []
     for cord in cords:
-        new_cord = (cord[0] * ratio_width, cord[1] * ratio_height,
-                    cord[2] * ratio_width, cord[3] * ratio_height)
-        new_cords.append(new_cord)
+        x = cord[0] * ratio_width * dw
+        y = cord[1] * ratio_height * dh
+        w = cord[2] * ratio_width * dw
+        h = cord[3] * ratio_height * dh
+
+        new_cords.append((x, y, w, h))
 
     return new_cords
+
 
 def grid_index(x, y):
 

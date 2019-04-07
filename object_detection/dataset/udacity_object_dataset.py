@@ -120,10 +120,21 @@ class UdacityObjectDataset(DatasetBase):
 
             for box in boxes.itertuples(index=None, name=None):
                 # convert box cordinates to yolo format cordinates
-                x, y, w, h = yolo_utils.from_cord_to_yolo(box[1], box[2], box[3], box[4], img.shape)
+                x, y, w, h = yolo_utils.to_yolo_cords(box[1], box[2], box[3], box[4], img.shape)
 
-                # resize the cordinates to yolo size
-                [(x, y, w, h)] = yolo_utils.yolo_cords([(x, y, w, h)], original_image_shape)
+                # x_min = int((x - w/2) * img.shape[1])
+                # y_min = int((y - h/2) * img.shape[0])
+                #
+                # x_max = int((x + w/2) * img.shape[1])
+                # y_max = int((y + h/2) * img.shape[0])
+                # #
+                # image_utils.plot_img(image_utils.add_bb_to_img(img, int(box[1]), int(box[2]), int(box[3]), int(box[4])))
+                # image_utils.plot_img(image_utils.add_bb_to_img(img, x_min, y_min, x_max, y_max))
+
+                # resize the cordinates to yolo size and add relative value <0.0-1.0>
+                # TODO: read from config
+                [(x, y, w, h)] = yolo_utils.resize_cords([(x, y, w, h)], original_image_shape, (448, 448, 3),
+                                                         relative_cords=True)
 
                 # one hot encoding for box classification
                 one_hot = box[7:]
@@ -136,6 +147,14 @@ class UdacityObjectDataset(DatasetBase):
 
             img = yolo_utils.img_to_yolo_shape(img)
             images.append(img)
+
+            # x_min = int((x - w/2)*448)
+            # y_min = int((y - h/2)*448)
+            #
+            # x_max = int((x + w/2)*448)
+            # y_max = int((y + h/2)*448)
+            #
+            # image_utils.plot_img(image_utils.add_bb_to_img(img, x_min, y_min, x_max, y_max))
 
         df['image'] = images
         df['label'] = labels
