@@ -101,18 +101,27 @@ class ObjectTrainer(BaseTrain):
 
     def test_step(self):
 
-        loss, loss_cord, loss_confidence, loss_class, boxes, scores, classes, image, labels = self.session.run(
+        loss, loss_cord, loss_size, loss_confidence, loss_class, boxes, scores, classes, image, labels, mask, debug = self.session.run(
             [self.model.get_loss(),
              self.model.loss_cord,
+             self.model.loss_size,
              self.model.loss_confidence,
              self.model.loss_class,
              self.model.get_tensor_boxes(),
              self.model.get_tensor_scores(),
              self.model.get_tensor_classes(),
              self.model.get_image(),
-             self.model.get_labels()],
+             self.model.get_labels(),
+             self.model.mask,
+             self.model.debug],
             feed_dict={self.iterator.handle_placeholder: self.test_handle}
         )
+
+        print(mask.shape)
+        print(mask)
+        #
+        print(debug.shape)
+        print(debug)
 
         # -----------TESTING-----------
         label_boxes = []
@@ -130,9 +139,7 @@ class ObjectTrainer(BaseTrain):
         print(f'Label: {x_min}, {y_min}, {x_max}, {y_max}')
         # -----------TESTING-----------
 
-
-        return loss, loss_cord, loss_confidence, loss_class
-
+        return loss, loss_cord, loss_size, loss_confidence, loss_class
 
     def log_progress(self, input, num_iteration, mode):
 
@@ -149,7 +156,8 @@ class ObjectTrainer(BaseTrain):
             #train_acc='{:05.3f}'.format(train_output[1]),
             test_loss='{:05.3f}'.format(test_output[0]),
             test_loss_cord='{:05.3f}'.format(test_output[1]),
-            test_loss_coenfience='{:05.3f}'.format(test_output[2]),
-            test_loss_class='{:05.3f}'.format(test_output[3]),
+            test_loss_size='{:05.3f}'.format(test_output[2]),
+            test_loss_coeficent='{:05.3f}'.format(test_output[3]),
+            test_loss_class='{:05.3f}'.format(test_output[4]),
             #test_acc='{:05.3f}'.format(test_output[1]),
         )

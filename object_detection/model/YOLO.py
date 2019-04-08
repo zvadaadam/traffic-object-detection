@@ -241,8 +241,9 @@ class YOLO(CNNModel):
         # TODO: we ASSUME B = 1
 
         with tf.name_scope('loss'):
-            loss_cord = self.cord_loss(label, predict, lambda_cord)
+            loss_size, loss_cord = self.cord_loss(label, predict, lambda_cord)
             self.loss_cord = loss_cord
+            self.loss_size = loss_size
 
             loss_confidence = self.confidence_loss(label, predict, lambda_noobj)
             self.loss_confidence = loss_confidence
@@ -250,7 +251,8 @@ class YOLO(CNNModel):
             loss_class = self.classes_loss(label, predict)
             self.loss_class = loss_class
 
-            loss = tf.add(loss_cord, loss_confidence)
+            loss = tf.add(loss_cord, loss_size)
+            loss = tf.add(loss, loss_confidence)
             loss = tf.add(loss, loss_class)
 
         return loss
@@ -284,16 +286,18 @@ class YOLO(CNNModel):
             # contains object(x>0) or does not contain object(x==0)
             cord_mask = tf.expand_dims(label[..., 4], axis=-1)
 
-            pred_cord = pred[..., 0:2]
+            self.mask = cord_mask
+
+            pred_cord = tf.sigmoid(pred[..., 0:2])
             label_cord = label[..., 0:2]
 
-            pred_size = pred[..., 2:4]
+            pred_size = tf.sigmoid(pred[..., 2:4])
             label_size = label[..., 2:4]
 
-            print(pred_cord.get_shape())
-            print(label_cord.get_shape())
-
             loss_cord = cord_mask * (pred_cord - label_cord)
+
+            self.debug = tf.square(loss_cord)
+
             loss_cord = tf.reduce_sum(tf.square(loss_cord), axis=[1, 2, 3]) * lambda_cord
             loss_cord = tf.reduce_mean(loss_cord)
 
@@ -308,7 +312,7 @@ class YOLO(CNNModel):
             # loss_size = tf.multiply(indicator_coord, tf.squared_difference(label_size, pred_size))
             # loss_size = tf.reduce_sum(loss_size)
 
-        return tf.add(loss_size, loss_cord)
+        return loss_size, loss_cord
 
     def confidence_loss(self, label, pred, lambda_noobj=0.5):
 
@@ -329,9 +333,13 @@ class YOLO(CNNModel):
             mask_noobj = (1 - mask_obj)
 
             pred_iou = self.iou(label[..., 0:4], pred[..., 0:4])
+            self.debug = pred_iou
 
             confidence_label = tf.expand_dims(label[..., 4], axis=-1)
-            confidence_pred = tf.expand_dims(pred[..., 4], axis=-1) * pred_iou
+            confidence_pred = tf.expand_dims(pred[..., 4], axis=-1)
+            confidence_pred = tf.sigmoid(confidence_pred)
+            #confidence_pred *= pred_iou
+
 
             loss_obj = mask_obj * (confidence_pred - confidence_label)
             loss_obj = tf.reduce_sum(tf.square(loss_obj), axis=[1, 2, 3])
@@ -344,8 +352,6 @@ class YOLO(CNNModel):
         return tf.add(loss_obj, loss_noobj)
 
     def iou(self, label_box, pred_box):
-        """ same as `bbox_iou_corner_xy', except that we have
-            center_x, center_y, w, h instead of x1, y1, x2, y2 """
 
         x11, y11, w11, h11 = tf.split(pred_box, 4, axis=3)
         x21, y21, w21, h21 = tf.split(label_box, 4, axis=3)
@@ -379,7 +385,7 @@ class YOLO(CNNModel):
         with tf.name_scope('class'):
             mask_class = tf.expand_dims(label[..., 4], axis=-1)
 
-            class_label = label[..., 5:]
+            class_label = tf.nn.softmax(label[..., 5:])
             class_pred = pred[..., 5:]
 
             loss_class = mask_class * (class_pred - class_label)
