@@ -101,29 +101,37 @@ class ObjectTrainer(BaseTrain):
 
     def test_step(self):
 
-        loss, loss_cord, loss_size, loss_confidence, loss_class, boxes, scores, classes, image, labels, mask, debug = self.session.run(
+        loss, loss_cord, loss_size, loss_obj, loss_noobj, loss_class, learning_rate, boxes, scores, classes, image, labels, mask, debug = self.session.run(
             [self.model.get_loss(),
              self.model.loss_cord,
              self.model.loss_size,
-             self.model.loss_confidence,
+             self.model.loss_obj,
+             self.model.loss_noobj,
              self.model.loss_class,
+             self.model.learning_rate,
              self.model.get_tensor_boxes(),
              self.model.get_tensor_scores(),
              self.model.get_tensor_classes(),
              self.model.get_image(),
              self.model.get_labels(),
              self.model.mask,
-             self.model.debug],
+             self.model.debug,],
             feed_dict={self.iterator.handle_placeholder: self.test_handle}
         )
 
-        print(mask.shape)
-        print(mask)
+        # print(mask.shape)
+        # print(mask)
         #
-        print(debug.shape)
-        print(debug)
+        print(np.sum(debug, axis=(1, 2, 3)))
+        print(debug.any())
+
+        print(boxes.shape)
 
         # -----------TESTING-----------
+        if boxes.shape[0] == 0:
+            print('NO BOXES RETURNED!')
+            return loss, loss_cord, loss_size, loss_obj, loss_noobj, loss_class, learning_rate
+
         label_boxes = []
         for label in np.reshape(labels[0], newshape=[49, 10]):
             if label[0] != 0.0 and label[1] != 0.0:
@@ -131,15 +139,16 @@ class ObjectTrainer(BaseTrain):
 
 
         x_min, y_min, x_max, y_max = yolo_utils.from_yolo_to_cord(boxes[0], image[0].shape)
-        image_utils.add_bb_to_img(image[0], x_min, y_min, x_max, y_max)
         print(f'Predicted: {x_min}, {y_min}, {x_max}, {y_max}')
+        image_utils.add_bb_to_img(image[0], x_min, y_min, x_max, y_max)
+
 
         x_min, y_min, x_max, y_max = yolo_utils.from_yolo_to_cord(label_boxes[0][0:4], image[0].shape)
-        image_utils.plot_img(image_utils.add_bb_to_img(image[0], x_min, y_min, x_max, y_max))
         print(f'Label: {x_min}, {y_min}, {x_max}, {y_max}')
+        image_utils.plot_img(image_utils.add_bb_to_img(image[0], x_min, y_min, x_max, y_max))
         # -----------TESTING-----------
 
-        return loss, loss_cord, loss_size, loss_confidence, loss_class
+        return loss, loss_cord, loss_size, loss_obj, loss_noobj, loss_class, learning_rate
 
     def log_progress(self, input, num_iteration, mode):
 
@@ -157,7 +166,9 @@ class ObjectTrainer(BaseTrain):
             test_loss='{:05.3f}'.format(test_output[0]),
             test_loss_cord='{:05.3f}'.format(test_output[1]),
             test_loss_size='{:05.3f}'.format(test_output[2]),
-            test_loss_coeficent='{:05.3f}'.format(test_output[3]),
-            test_loss_class='{:05.3f}'.format(test_output[4]),
+            test_loss_obj='{:05.3f}'.format(test_output[3]),
+            test_loss_noobj='{:05.3f}'.format(test_output[4]),
+            test_loss_class='{:05.3f}'.format(test_output[5]),
+            test_learning_rate='{:05.5f}'.format(test_output[6]),
             #test_acc='{:05.3f}'.format(test_output[1]),
         )

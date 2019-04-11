@@ -232,7 +232,42 @@ class YOLO(CNNModel):
         logits = tf.reshape(fc2, shape=[self.config.batch_size(), grid_size, grid_size, boxes_per_cell*5 + num_classes])
         print('Logits: {}'.format(logits.get_shape()))
 
+        logits = self.transform_output_logits(logits)
+
         return logits
+
+    def transform_output_logits(self, logits):
+
+        #cords = tf.sigmoid(logits[..., 0:2])
+        cords = logits[..., 0:2]
+
+        sizes = logits[..., 2:4]
+        #sizes = logits[..., 2:4]
+
+        #self.debug = logits[..., 2:4]
+
+        #confidences = tf.sigmoid(logits[..., 4:5])
+        confidences = logits[..., 4:5]
+
+        #classes = tf.nn.softmax(logits[..., 5:])
+        classes = logits[..., 5:]
+
+        return tf.concat([
+            cords,
+            sizes,
+            confidences,
+            classes
+        ], axis=-1)
+
+    def optimizer(self, loss, start_learning_rate=0.0001):
+
+        learning_rate = tf.train.exponential_decay(start_learning_rate, self.global_step_tensor, 100, 0.96, staircase=True)
+
+        self.learning_rate = learning_rate
+
+        opt = tf.train.AdamOptimizer(learning_rate).minimize(loss)
+
+        return opt
 
     def yolo_loss(self, predict, label, lambda_cord=5, lambda_noobj=0.5):
 
@@ -245,8 +280,11 @@ class YOLO(CNNModel):
             self.loss_cord = loss_cord
             self.loss_size = loss_size
 
-            loss_confidence = self.confidence_loss(label, predict, lambda_noobj)
-            self.loss_confidence = loss_confidence
+            loss_obj, loss_noobj = self.confidence_loss(label, predict, lambda_noobj)
+            self.loss_obj = loss_obj
+            self.loss_noobj = loss_noobj
+
+            loss_confidence = loss_obj + loss_noobj
 
             loss_class = self.classes_loss(label, predict)
             self.loss_class = loss_class
@@ -257,20 +295,8 @@ class YOLO(CNNModel):
 
         return loss
 
-    def optimizer(self, loss):
-        opt = tf.train.AdamOptimizer(learning_rate=0.0001).minimize(loss)
-
-        return opt
-
-    # def accuracy(self, logits, y):
-    #     with tf.name_scope('loss'):
-    #         acc = tf.equal(tf.argmax(logits, axis=1), tf.argmax(y, axis=1))
-    #         acc = tf.reduce_mean(tf.cast(acc, tf.float32))
-    #
-    #     return acc
-
     def cord_loss(self, label, pred, lambda_cord=5):
-        # INPUT: (?, grid_size, grid_size, bB*5 + num_classes)
+        # INPUT: (?, grid_size, grid_size, B*5 + num_classes)
 
         # TODO: we ASSUME B = 1
 
@@ -288,17 +314,15 @@ class YOLO(CNNModel):
 
             self.mask = cord_mask
 
-            pred_cord = tf.sigmoid(pred[..., 0:2])
+            pred_cord = pred[..., 0:2]
             label_cord = label[..., 0:2]
 
-            pred_size = tf.sigmoid(pred[..., 2:4])
+            pred_size = pred[..., 2:4]
             label_size = label[..., 2:4]
 
-            loss_cord = cord_mask * (pred_cord - label_cord)
+            loss_cord = cord_mask * tf.square(pred_cord - label_cord)
 
-            self.debug = tf.square(loss_cord)
-
-            loss_cord = tf.reduce_sum(tf.square(loss_cord), axis=[1, 2, 3]) * lambda_cord
+            loss_cord = tf.reduce_sum(loss_cord, axis=[1, 2, 3]) * lambda_cord
             loss_cord = tf.reduce_mean(loss_cord)
 
             loss_size = cord_mask * (tf.sqrt(tf.abs(pred_size)) - tf.sqrt(label_size))
@@ -314,7 +338,7 @@ class YOLO(CNNModel):
 
         return loss_size, loss_cord
 
-    def confidence_loss(self, label, pred, lambda_noobj=0.5):
+    def confidence_loss(self, label, pred, lambda_obj=1, lambda_noobj=0.5):
 
         # ---TESTING PURPOSE----
         # indicator_noobj = tf.dtypes.cast(indicator_noobj > 0.6, tf.float32)
@@ -329,27 +353,33 @@ class YOLO(CNNModel):
 
         with tf.name_scope('confidence'):
             mask_obj = tf.expand_dims(label[..., 4], axis=-1)
-
             mask_noobj = (1 - mask_obj)
-
-            pred_iou = self.iou(label[..., 0:4], pred[..., 0:4])
-            self.debug = pred_iou
 
             confidence_label = tf.expand_dims(label[..., 4], axis=-1)
             confidence_pred = tf.expand_dims(pred[..., 4], axis=-1)
-            confidence_pred = tf.sigmoid(confidence_pred)
-            #confidence_pred *= pred_iou
+
+            iou = self.iou(label[..., 0:4], pred[..., 0:4])
+            self.debug = iou
+
+            # good detections
+            object_detections = tf.cast(iou > 0.5, dtype=tf.float32)
+            bad_object_detections = tf.cast(iou < 0.5, dtype=tf.float32) # 1 - object_detections
 
 
-            loss_obj = mask_obj * (confidence_pred - confidence_label)
-            loss_obj = tf.reduce_sum(tf.square(loss_obj), axis=[1, 2, 3])
-            loss_obj = tf.reduce_mean(loss_obj)
+            # NOT DETECTED OBJECT - punish bad detection
+            no_objects_loss = mask_noobj * tf.square(confidence_label - (confidence_pred * bad_object_detections)) * lambda_noobj
 
-            loss_noobj = mask_noobj * (confidence_pred - confidence_label)
-            loss_noobj = tf.reduce_sum(tf.square(loss_noobj), axis=[1, 2, 3]) * lambda_noobj
+            loss_noobj = tf.reduce_sum(no_objects_loss, axis=[1, 2, 3]) * lambda_noobj
             loss_noobj = tf.reduce_mean(loss_noobj)
 
-        return tf.add(loss_obj, loss_noobj)
+            # DETECTED - punish wrong detections
+            objects_loss = mask_obj * tf.square((confidence_label - (confidence_pred * object_detections))) * lambda_obj
+            #objects_loss = mask_obj * tf.square((confidence_label - confidence_pred)) * lambda_obj
+
+            loss_obj = tf.reduce_sum(objects_loss, axis=[1, 2, 3])
+            loss_obj = tf.reduce_mean(loss_obj)
+
+        return loss_obj, loss_noobj
 
     def iou(self, label_box, pred_box):
 
@@ -365,8 +395,7 @@ class YOLO(CNNModel):
         wi = w11 / 2.0 + tf.transpose(w21 / 2.0)
         hi = h11 / 2.0 + tf.transpose(h21 / 2.0)
 
-        inter_area = tf.maximum(wi - (xi1 - xi2 + 1), 0) \
-                     * tf.maximum(hi - (yi1 - yi2 + 1), 0)
+        inter_area = tf.maximum(wi - (xi1 - xi2 + 1), 0) * tf.maximum(hi - (yi1 - yi2 + 1), 0)
 
         bboxes1_area = w11 * h11
         bboxes2_area = w21 * h21
@@ -385,7 +414,7 @@ class YOLO(CNNModel):
         with tf.name_scope('class'):
             mask_class = tf.expand_dims(label[..., 4], axis=-1)
 
-            class_label = tf.nn.softmax(label[..., 5:])
+            class_label = label[..., 5:]
             class_pred = pred[..., 5:]
 
             loss_class = mask_class * (class_pred - class_label)
@@ -401,7 +430,7 @@ class YOLO(CNNModel):
         return self.non_max_suppression(boxes, scores, classes)
 
 
-    def filter_boxes(self, y_pred, threshold=0.6):
+    def filter_boxes(self, y_pred, threshold=0.5):
         """Filters YOLO boxes by thresholding on object and class confidence."""
 
         box_confidence = tf.expand_dims(y_pred[..., 4], axis=-1)
@@ -430,7 +459,7 @@ class YOLO(CNNModel):
 
         max_boxes_tensor = tf.constant(max_boxes, dtype='int32')
 
-        # convert to from (x,y,w,h) to (y1, x1, y2, y2) cause of nms
+        # convert to from (x,y,w,h) to (y1, x1, y2, x2) cause of nms
         boxes = self.convert_to_min_max_cord(boxes)
 
         nms_index = tf.image.non_max_suppression(boxes, scores, max_boxes_tensor,

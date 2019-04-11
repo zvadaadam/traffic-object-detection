@@ -21,7 +21,7 @@ class ImageIterator(object):
 
         dataset = tf.data.Dataset.from_tensor_slices((self.model.x, self.model.y))
 
-        dataset = dataset.batch(self.config.batch_size(), drop_remainder=True).repeat()
+        dataset = dataset.batch(self.config.batch_size(), drop_remainder=True).shuffle(buffer_size=100).repeat()
 
         dataset_iterator = dataset.make_initializable_iterator()
 
