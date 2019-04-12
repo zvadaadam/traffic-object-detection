@@ -33,15 +33,34 @@ class CNNModel(ModelBase):
             #
             # conv = tf.nn.conv2d(inputs, weights, strides=[1, stride_y, stride_x, 1],
             #                     padding=padding)
+            #
+            # conv = tf.keras.layers.Conv2D(kernel_size=(filter_height, filter_width), filters=num_filters,
+            #                      strides=(stride_x, stride_y), padding=padding,
+            #                      kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
+            #                      bias_initializer=tf.zeros_initializer())
+            # conv = conv(inputs)
 
-            x = tf.layers.conv2d(inputs, kernel_size=(filter_height, filter_width), filters=num_filters,
+            conv = tf.layers.Conv2D(kernel_size=(filter_height, filter_width), filters=num_filters,
                                  strides=(stride_x, stride_y), padding=padding,
                                  kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
-                                 bias_initializer=tf.zeros_initializer())
+                                 bias_initializer=tf.zeros_initializer(), activation=None)
+
+            output = conv.apply(inputs)
+
             # x = tf.layers.batch_normalization(x, training=True, momentum=0.99, epsilon=0.001, center=True,
             #                                   scale=True)
 
-        return tf.nn.leaky_relu(x, name=scope.name, alpha=0.1)
+            # bias summary
+            tf.summary.histogram(scope_name + '/bias', conv.bias)
+
+            # weights summary
+            #tf.summary.image(scope_name + '/weights', conv.weights[0])
+            #tf.summary.histogram(scope_name + '/weights', conv.weights)
+
+            output = tf.nn.leaky_relu(output, name=scope.name, alpha=0.1)
+            tf.summary.histogram(scope_name + '/axtivations', output)
+
+        return output
 
     def max_pool(self, inputs, filter_height, filter_width,
                  stride_x, stride_y, padding='VALID', scope_name='pool'):

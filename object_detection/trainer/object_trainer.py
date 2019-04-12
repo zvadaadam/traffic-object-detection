@@ -42,6 +42,8 @@ class ObjectTrainer(BaseTrain):
 
         self.model.build_model(model_train_inputs)
 
+        train_writer, test_writer, merged_summaries = self.init_tensorboard()
+
         self.init = tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())
         self.session.run(self.init)
 
@@ -56,9 +58,9 @@ class ObjectTrainer(BaseTrain):
                            desc='Training {}'.format(self.config.model_name()))
         for cur_epoch in t_epoches:
             # run epoch training
-            train_output = self.train_epoch(cur_epoch)
+            train_output = self.train_epoch(cur_epoch, train_writer, merged_summaries)
             # run model on test set
-            test_output = self.test_step()
+            test_output = self.test_step(test_writer, merged_summaries)
 
             self.log_progress(train_output, num_iteration=cur_epoch * self.config.num_iterations(), mode='train')
             self.log_progress(test_output, num_iteration=cur_epoch * self.config.num_iterations(), mode='test')
@@ -73,14 +75,23 @@ class ObjectTrainer(BaseTrain):
         # finale save model - creates checkpoint
         self.model.save(self.session, write_meta_graph=True)
 
-    def train_epoch(self, cur_epoche):
+    def init_tensorboard(self):
+
+        merged = tf.summary.merge_all()
+
+        train_writer = tf.summary.FileWriter(self.config.tensorboard_path() + '/train', self.session.graph)
+        test_writer = tf.summary.FileWriter(self.config.tensorboard_path() + '/test')
+
+        return train_writer, test_writer, merged
+
+    def train_epoch(self, cur_epoche, train_writer, merged_summaries):
 
         num_iterations = self.config.num_iterations()
 
         mean_loss = 0
         for i in range(num_iterations):
 
-            loss = self.train_step()
+            loss = self.train_step(train_writer, merged_summaries, cur_epoche*num_iterations + i)
 
             mean_loss += loss
 
@@ -89,17 +100,22 @@ class ObjectTrainer(BaseTrain):
         return mean_loss, 0
 
 
-    def train_step(self):
+    def train_step(self, train_writer, merged_summaries, iter):
 
-        _, loss = self.session.run([self.model.opt, self.model.loss],
+        # run training
+        summary, _, loss = self.session.run([merged_summaries, self.model.opt, self.model.loss],
             feed_dict={self.iterator.handle_placeholder: self.train_handle}
         )
 
+        # write summaries to tensorboard
+        train_writer.add_summary(summary, iter)
+
+        # increase global step
         self.session.run(self.model.increment_global_step_tensor)
 
         return loss
 
-    def test_step(self):
+    def test_step(self, test_writer, merged_summaries):
 
         loss, loss_cord, loss_size, loss_obj, loss_noobj, loss_class, learning_rate, boxes, scores, classes, image, labels, mask, debug = self.session.run(
             [self.model.get_loss(),

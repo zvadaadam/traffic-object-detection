@@ -58,7 +58,7 @@ class YOLO(CNNModel):
 
         self.loss = self.yolo_loss(yolo_output, y)
 
-        self.opt = self.optimizer(self.loss)
+        self.opt = self.optimizer(self.loss, self.config.learning_rate())
 
         with tf.variable_scope('eval'):
             boxes, scores, classes = self.eval_boxes(yolo_output)
@@ -162,9 +162,9 @@ class YOLO(CNNModel):
         print('Conv15: {}'.format(conv.get_shape()))
 
         # LAYER 16
-        conv3 = self.conv(conv, filter_height=3, filter_width=3, num_filters=1024,
+        conv = self.conv(conv, filter_height=3, filter_width=3, num_filters=1024,
                           stride_x=1, stride_y=1, padding='SAME', scope_name='conv16')
-        print('Conv16: {}'.format(conv3.get_shape()))
+        print('Conv16: {}'.format(conv.get_shape()))
 
         pool = self.max_pool(conv, filter_height=2, filter_width=2, stride_x=2, stride_y=2,
                              padding='VALID', scope_name='pool4')
@@ -173,17 +173,17 @@ class YOLO(CNNModel):
         # LAYER 17
         conv = self.conv(pool, filter_height=1, filter_width=1, num_filters=512,
                          stride_x=1, stride_y=1, padding='SAME', scope_name='conv17')
-        print('Conv17: {}'.format(conv3.get_shape()))
+        print('Conv17: {}'.format(conv.get_shape()))
 
         # LAYER 18
         conv = self.conv(conv, filter_height=3, filter_width=3, num_filters=1024,
                          stride_x=1, stride_y=1, padding='SAME', scope_name='conv18')
-        print('Conv18: {}'.format(conv3.get_shape()))
+        print('Conv18: {}'.format(conv.get_shape()))
 
         # LAYER 19
         conv = self.conv(conv, filter_height=1, filter_width=1, num_filters=512,
                          stride_x=1, stride_y=1, padding='SAME', scope_name='conv19')
-        print('Conv19: {}'.format(conv3.get_shape()))
+        print('Conv19: {}'.format(conv.get_shape()))
 
         # LAYER 20
         conv = self.conv(conv, filter_height=3, filter_width=3, num_filters=1024,
@@ -261,7 +261,7 @@ class YOLO(CNNModel):
 
     def optimizer(self, loss, start_learning_rate=0.0001):
 
-        learning_rate = tf.train.exponential_decay(start_learning_rate, self.global_step_tensor, 100, 0.96, staircase=True)
+        learning_rate = tf.train.exponential_decay(self.config.learning_rate(), self.global_step_tensor, 100, 0.96, staircase=True)
 
         self.learning_rate = learning_rate
 
@@ -280,18 +280,28 @@ class YOLO(CNNModel):
             self.loss_cord = loss_cord
             self.loss_size = loss_size
 
+            tf.summary.scalar('loss_cord', loss_cord)
+            tf.summary.scalar('loss_size', loss_size)
+
             loss_obj, loss_noobj = self.confidence_loss(label, predict, lambda_noobj)
             self.loss_obj = loss_obj
             self.loss_noobj = loss_noobj
+
+            tf.summary.scalar('loss_obj', loss_obj)
+            tf.summary.scalar('loss_noobj', loss_noobj)
 
             loss_confidence = loss_obj + loss_noobj
 
             loss_class = self.classes_loss(label, predict)
             self.loss_class = loss_class
 
+            tf.summary.scalar('loss_class', loss_class)
+
             loss = tf.add(loss_cord, loss_size)
             loss = tf.add(loss, loss_confidence)
             loss = tf.add(loss, loss_class)
+
+            tf.summary.scalar('loss', loss)
 
         return loss
 

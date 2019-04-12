@@ -12,7 +12,7 @@ hyperparams:
   num_classes: 5
   num_epoches: 200
   num_iterations: 10
-  learning_rate: 0.001
+  learning_rate: 0.0001
 model:
   model_type: &model_type CNN
   trained_path:  trained_models/

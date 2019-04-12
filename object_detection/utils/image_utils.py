@@ -15,6 +15,8 @@ def add_bb_to_img(img, x_min, y_min, x_max, y_max, is_occulded=False):
     if is_occulded:
         color = (0, 0, 255)  # red is occulded
 
+    print(img)
+
     return cv2.rectangle(img, (x_min, y_min), (x_max, y_max), color, 3)
 
 def plot_img(img):
