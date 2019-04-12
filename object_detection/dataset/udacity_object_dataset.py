@@ -100,9 +100,16 @@ class UdacityObjectDataset(DatasetBase):
 
         # YOLO: Input image: 448x448, output: 7x7x(B*5 + num_classes)
 
-        grid_size = self.config.grid_size()
-        B = self.config.boxes_per_cell()
         num_classes = self.config.num_classes()
+        B = self.config.boxes_per_cell()
+        yolo_image_width = self.config.image_width()
+        yolo_image_height = self.config.image_height()
+
+        if yolo_image_width != yolo_image_height:
+            raise Exception('YOLO supports images that are rectangles, if you don\'t like, change it')
+
+        num_grids = self.config.grid_size()
+        grid_size = int(yolo_image_width/num_grids)
 
         df = pd.DataFrame()
 
@@ -115,38 +122,53 @@ class UdacityObjectDataset(DatasetBase):
             img = image_utils.load_img(self.config.dataset_path(), frame)
             original_image_shape = img.shape
 
+            #image_utils.plot_img(img)
+
+            # resize image to yolo wxh
+            resized_img = image_utils.resize_image(img, self.config.image_height(), self.config.image_height())
+            resized_image_shape = resized_img.shape
+
+            #image_utils.plot_img(resized_img)
+
+            images.append(resized_img)
+
             # create zeroed out yolo label
-            label = np.zeros(shape=(grid_size, grid_size, B * 5 + num_classes))
+            label = np.zeros(shape=(num_grids, num_grids, B * 5 + num_classes))
 
             for box in boxes.itertuples(index=None, name=None):
-                # convert box cordinates to yolo format cordinates
-                x, y, w, h = yolo_utils.to_yolo_cords(box[1], box[2], box[3], box[4], img.shape)
 
-                # x_min = int((x - w/2) * img.shape[1])
-                # y_min = int((y - h/2) * img.shape[0])
-                #
-                # x_max = int((x + w/2) * img.shape[1])
-                # y_max = int((y + h/2) * img.shape[0])
-                # #
-                # image_utils.plot_img(image_utils.add_bb_to_img(img, int(box[1]), int(box[2]), int(box[3]), int(box[4])))
-                # image_utils.plot_img(image_utils.add_bb_to_img(img, x_min, y_min, x_max, y_max))
+                # convert from (x_min, y_min, x_max, y_max) to (x, y, w, h)
+                x, y, w, h = yolo_utils.to_yolo_cords(box[1], box[2], box[3], box[4], original_image_shape)
 
-                # resize the cordinates to yolo size and add relative value <0.0-1.0>
-                # TODO: read from config
-                [(x, y, w, h)] = yolo_utils.resize_cords([(x, y, w, h)], original_image_shape, (448, 448, 3),
-                                                         relative_cords=True)
+                # resize to yolo WxH format
+                [(x, y, w, h)] = yolo_utils.resize_cords([(x, y, w, h)], original_image_shape, resized_image_shape)
+
+                # TODO: move to func
+                origin_box_x = int(x / grid_size) * grid_size
+                origin_box_y = int(y / grid_size) * grid_size
+
+                rel_b_x = (x - origin_box_x) / grid_size
+                rel_b_y = (y - origin_box_y) / grid_size
+
+                rel_w = w / yolo_image_width
+                rel_h = h / yolo_image_height
+
+                # x_min, y_min, x_max, y_max = yolo_utils.from_yolo_to_cord(
+                #     ((rel_b_x * grid_size + origin_box_x)/yolo_image_width,
+                #      (rel_b_y * grid_size + origin_box_y)/yolo_image_height,
+                #      rel_w, rel_h),
+                #     resized_image_shape)
+                # image_utils.plot_img(image_utils.add_bb_to_img(resized_img, x_min, y_min, x_max, y_max))
 
                 # one hot encoding for box classification
                 one_hot = box[7:]
 
-                g_x, g_y = yolo_utils.grid_index(x, y)
+                # index of grid cell in YOLO image
+                g_x, g_y = int(origin_box_x/grid_size), int(origin_box_y/grid_size)
 
-                label[g_x, g_y, :] = np.concatenate((x, y, w, h, 1, one_hot), axis=None)
+                label[g_x, g_y, :] = np.concatenate((rel_b_x, rel_b_y, rel_w, rel_h, 1, one_hot), axis=None)
 
             labels.append(label)
-
-            img = yolo_utils.img_to_yolo_shape(img)
-            images.append(img)
 
             # x_min = int((x - w/2)*448)
             # y_min = int((y - h/2)*448)

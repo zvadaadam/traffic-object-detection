@@ -25,8 +25,8 @@ def plot_img(img):
     plt.show()
 
 
-def resize_image(img, new_height, new_width):
-    return cv2.resize(img, (new_height, new_width), interpolation=cv2.INTER_CUBIC)
+def resize_image(img, new_width, new_height):
+    return cv2.resize(img, (new_width, new_height, ), interpolation=cv2.INTER_CUBIC)
 
 def evaluate_prediction(y_pred, y_true, iou_threshold=0.5, score_treshold=0.4):
 

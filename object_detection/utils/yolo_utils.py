@@ -116,5 +116,5 @@ def grid_index(x, y):
 
     grid_size = 7
 
-    return int(x/(1/grid_size )), int(y/(1/grid_size))
+    return int(x/(1/grid_size)), int(y/(1/grid_size))
 

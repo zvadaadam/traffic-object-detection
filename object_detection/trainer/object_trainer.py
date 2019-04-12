@@ -153,15 +153,17 @@ class ObjectTrainer(BaseTrain):
             if label[0] != 0.0 and label[1] != 0.0:
                 label_boxes.append(label)
 
+        print(f'Predicted: {boxes[0][0]}, {boxes[0][1]}, {boxes[0][2]}, {boxes[0][3]}')
+        print(f'Label: {label_boxes[0][0]}, {label_boxes[0][1]}, {label_boxes[0][2]}, {label_boxes[0][3]}')
 
-        x_min, y_min, x_max, y_max = yolo_utils.from_yolo_to_cord(boxes[0], image[0].shape)
-        print(f'Predicted: {x_min}, {y_min}, {x_max}, {y_max}')
-        image_utils.add_bb_to_img(image[0], x_min, y_min, x_max, y_max)
-
-
-        x_min, y_min, x_max, y_max = yolo_utils.from_yolo_to_cord(label_boxes[0][0:4], image[0].shape)
-        print(f'Label: {x_min}, {y_min}, {x_max}, {y_max}')
-        image_utils.plot_img(image_utils.add_bb_to_img(image[0], x_min, y_min, x_max, y_max))
+        # x_min, y_min, x_max, y_max = yolo_utils.from_yolo_to_cord(boxes[0], image[0].shape)
+        # print(f'Predicted: {x_min}, {y_min}, {x_max}, {y_max}')
+        # image_utils.add_bb_to_img(image[0], x_min, y_min, x_max, y_max)
+        #
+        #
+        # x_min, y_min, x_max, y_max = yolo_utils.from_yolo_to_cord(label_boxes[0][0:4], image[0].shape)
+        # print(f'Label: {x_min}, {y_min}, {x_max}, {y_max}')
+        # image_utils.plot_img(image_utils.add_bb_to_img(image[0], x_min, y_min, x_max, y_max))
         # -----------TESTING-----------
 
         return loss, loss_cord, loss_size, loss_obj, loss_noobj, loss_class, learning_rate
