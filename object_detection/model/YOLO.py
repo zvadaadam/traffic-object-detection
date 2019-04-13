@@ -375,7 +375,6 @@ class YOLO(CNNModel):
             object_detections = tf.cast(iou > 0.5, dtype=tf.float32)
             bad_object_detections = tf.cast(iou < 0.5, dtype=tf.float32) # 1 - object_detections
 
-
             # NOT DETECTED OBJECT - punish bad detection
             no_objects_loss = mask_noobj * tf.square(confidence_label - (confidence_pred * bad_object_detections)) * lambda_noobj
 
@@ -393,25 +392,40 @@ class YOLO(CNNModel):
 
     def iou(self, label_box, pred_box):
 
-        x11, y11, w11, h11 = tf.split(pred_box, 4, axis=3)
-        x21, y21, w21, h21 = tf.split(label_box, 4, axis=3)
+        pred_x, pred_y, pred_w, pred_h = tf.split(pred_box, 4, axis=3)
+        true_x, true_y, true_w, true_h = tf.split(label_box, 4, axis=3)
 
-        xi1 = tf.maximum(x11, tf.transpose(x21))
-        xi2 = tf.minimum(x11, tf.transpose(x21))
+        # TODO: have width and height relative to the grid cell from dataset
+        pred_w, pred_h = (448*pred_w)*(1/64), (448*pred_h)*(1/64)
+        true_w, true_h = (448*true_w)*(1/64), (448*true_h)*(1/64)
 
-        yi1 = tf.maximum(y11, tf.transpose(y21))
-        yi2 = tf.minimum(y11, tf.transpose(y21))
+        # from to (x, y, w, h) to (x_min, y_min, x_max, y_max)
+        pred_x_min, pred_y_min = pred_x - pred_w / 2, pred_y - pred_h / 2
+        pred_x_max, pred_y_max = pred_x + pred_h / 2, pred_y + pred_h / 2
 
-        wi = w11 / 2.0 + tf.transpose(w21 / 2.0)
-        hi = h11 / 2.0 + tf.transpose(h21 / 2.0)
+        true_x_min, true_y_min = true_x - true_w / 2, true_y - true_h / 2
+        true_x_max, true_y_max = true_x + true_w / 2, true_y + true_h / 2
 
-        inter_area = tf.maximum(wi - (xi1 - xi2 + 1), 0) * tf.maximum(hi - (yi1 - yi2 + 1), 0)
+        # get cords of intersect box
+        inter_x_min = tf.maximum(pred_x_min, true_x_min)
+        inter_y_min = tf.maximum(pred_y_min, true_y_min)
 
-        bboxes1_area = w11 * h11
-        bboxes2_area = w21 * h21
+        inter_x_max = tf.minimum(pred_x_max, true_x_max)
+        inter_y_max = tf.minimum(pred_y_max, true_y_max)
 
-        union = (bboxes1_area + tf.transpose(bboxes2_area)) - inter_area
+        # get area of intersect box, true box and pred box
+        inter_area = (inter_x_max - inter_x_min) * (inter_y_max - inter_y_min)
+        true_area = (true_x_max - true_x_min) * (true_y_max - true_y_min)
+        pred_area = (pred_x_max - pred_x_min) * (pred_y_max - pred_y_min)
 
+        # print(inter_area.eval())
+        # print(true_area.eval())
+        # print(pred_area.eval())
+
+        # union of area coverd by true and pred boxes
+        union = true_area + pred_area - inter_area
+
+        # add 0.00001 for numerical stability
         return inter_area / (union + 0.0001)
 
     def classes_loss(self, label, pred):
@@ -519,4 +533,17 @@ if __name__ == '__main__':
 
     yolo = YOLO(ConfigReader(config_path))
 
-    print(yolo.yolo_loss(predict=y_pred, label=y_true).eval())
+    # a = [[0.5, 0.5, 64/448, 64/448], [0.0, 0.0, 64/448, 64/448]]
+    # b = [[1.0, 1.0, 64/448, 64/448], [1.0, 1.0, 64/448, 64/448]]
+
+    a = [[0.0, 0.0, 64/448, 64/448]]
+    b = [[1.0, 1.0, 64/448, 64/448]]
+
+
+    label_box = tf.convert_to_tensor(a, np.float32)
+    pred_box = tf.convert_to_tensor(b, np.float32)
+
+    # test IOU
+    print(yolo.iou(label_box, pred_box).eval())
+
+    # print(yolo.yolo_loss(predict=y_pred, label=y_true).eval())
