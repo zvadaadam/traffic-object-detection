@@ -150,8 +150,10 @@ class UdacityObjectDataset(DatasetBase):
                 rel_b_x = (x - origin_box_x) / grid_size
                 rel_b_y = (y - origin_box_y) / grid_size
 
-                rel_w = w / yolo_image_width
-                rel_h = h / yolo_image_height
+                rel_w = w / grid_size
+                rel_h = h / grid_size
+                # rel_w = w / yolo_image_width
+                # rel_h = h / yolo_image_height
 
                 # x_min, y_min, x_max, y_max = yolo_utils.from_yolo_to_cord(
                 #     ((rel_b_x * grid_size + origin_box_x)/yolo_image_width,

@@ -11,10 +11,10 @@ hyperparams:
   num_layers: &num_layers 2
   num_classes: 5
   num_epoches: 200
-  num_iterations: 10
-  learning_rate: 0.0001
+  num_iterations: 12
+  learning_rate: 0.0007
 model:
-  model_type: &model_type CNN
+  model_type: &model_type YOLOv1.4
   trained_path:  trained_models/
   model_description: !join [*model_type, _, l, *num_layers, _, b, *batch_size]
   tensorboard_path: !join [tensorboard/, *model_type, _, l, *num_layers, _, b, *batch_size]

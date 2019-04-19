@@ -58,7 +58,7 @@ class CNNModel(ModelBase):
             #tf.summary.histogram(scope_name + '/weights', conv.weights)
 
             output = tf.nn.leaky_relu(output, name=scope.name, alpha=0.1)
-            tf.summary.histogram(scope_name + '/axtivations', output)
+            tf.summary.histogram(scope_name + '/activations', output)
 
         return output
 

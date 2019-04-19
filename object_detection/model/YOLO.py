@@ -261,9 +261,15 @@ class YOLO(CNNModel):
 
     def optimizer(self, loss, start_learning_rate=0.0001):
 
-        learning_rate = tf.train.exponential_decay(self.config.learning_rate(), self.global_step_tensor, 100, 0.96, staircase=True)
+
+        learning_rate = tf.train.cosine_decay_restarts(start_learning_rate, self.global_step_tensor, first_decay_steps=100,
+                                       t_mul=2.0, m_mul=1.2, alpha=0.0, name=None)
+
+        #learning_rate = tf.train.exponential_decay(self.config.learning_rate(), self.global_step_tensor, 50, 0.5, staircase=True)
 
         self.learning_rate = learning_rate
+
+        tf.summary.scalar('learning_rate', learning_rate)
 
         opt = tf.train.AdamOptimizer(learning_rate).minimize(loss)
 
@@ -373,17 +379,18 @@ class YOLO(CNNModel):
 
             # good detections
             object_detections = tf.cast(iou > 0.5, dtype=tf.float32)
-            bad_object_detections = tf.cast(iou < 0.5, dtype=tf.float32) # 1 - object_detections
+            bad_object_detections = tf.cast(iou < 0.5, dtype=tf.float32)  # 1 - object_detections
 
             # NOT DETECTED OBJECT - punish bad detection
-            no_objects_loss = mask_noobj * tf.square(confidence_label - (confidence_pred * bad_object_detections)) * lambda_noobj
+            #no_objects_loss = mask_noobj * tf.square(confidence_label - (confidence_pred * bad_object_detections)) * lambda_noobj
+            no_objects_loss = mask_noobj * tf.square(confidence_label - confidence_pred) * bad_object_detections * lambda_noobj
 
             loss_noobj = tf.reduce_sum(no_objects_loss, axis=[1, 2, 3]) * lambda_noobj
             loss_noobj = tf.reduce_mean(loss_noobj)
 
             # DETECTED - punish wrong detections
-            objects_loss = mask_obj * tf.square((confidence_label - (confidence_pred * object_detections))) * lambda_obj
-            #objects_loss = mask_obj * tf.square((confidence_label - confidence_pred)) * lambda_obj
+            #objects_loss = mask_obj * tf.square((confidence_label - (confidence_pred * object_detections))) * lambda_obj
+            objects_loss = mask_obj * tf.square(confidence_label - confidence_pred) * lambda_obj
 
             loss_obj = tf.reduce_sum(objects_loss, axis=[1, 2, 3])
             loss_obj = tf.reduce_mean(loss_obj)
