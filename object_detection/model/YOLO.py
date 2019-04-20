@@ -61,6 +61,7 @@ class YOLO(CNNModel):
         self.opt = self.optimizer(self.loss, self.config.learning_rate())
 
         with tf.variable_scope('eval'):
+
             boxes, scores, classes = self.eval_boxes(yolo_output)
 
             self.boxes = boxes
@@ -458,6 +459,12 @@ class YOLO(CNNModel):
 
         boxes, scores, classes = self.filter_boxes(y_pred)
 
+        batch_size = y_pred.get_shape()[0]
+
+        # convert to from (x,y,w,h) to (y1, x1, y2, x2) cause of nms
+        boxes = self.convert_to_min_max_cord(boxes, batch_size)
+
+        # TODO: revert box swapping after NMS
         return self.non_max_suppression(boxes, scores, classes)
 
 
@@ -490,9 +497,6 @@ class YOLO(CNNModel):
 
         max_boxes_tensor = tf.constant(max_boxes, dtype='int32')
 
-        # convert to from (x,y,w,h) to (y1, x1, y2, x2) cause of nms
-        boxes = self.convert_to_min_max_cord(boxes)
-
         nms_index = tf.image.non_max_suppression(boxes, scores, max_boxes_tensor,
                                                  iou_threshold=iou_threshold, score_threshold=score_threshold)
 
@@ -502,19 +506,42 @@ class YOLO(CNNModel):
 
         return boxes, scores, classes
 
-    def convert_to_min_max_cord(self, boxes):
+    def convert_to_min_max_cord(self, boxes, batch_size):
+
         box_xy = boxes[..., 0:2]
         box_wh = boxes[..., 2:4]
 
+        # number of grids
+        grid_size = tf.constant(self.config.grid_size())
+
+        # create grid (B, 7, 7, 2) where we have the min absolute coordinates of each grid
+        grid = tf.meshgrid(tf.range(grid_size), tf.range(grid_size))
+        grid = tf.stack(grid, axis=-1)
+        grid = tf.cast(grid, dtype=tf.float32)
+
+        cell_size = tf.constant(self.config.image_height()/self.config.grid_size(), dtype=tf.float32)
+        grid = grid * cell_size
+        grid = tf.stack([grid] * batch_size)
+
+        grid = tf.reshape(grid, (-1, 2))
+
+        # calculate absolute coordinates
+        box_xy = (box_xy * cell_size) + grid
+        box_wh = (box_wh * cell_size)
+
+        # convert to min max coordinates
         box_mins = box_xy - (box_wh / 2.)
         box_maxes = box_xy + (box_wh / 2.)
 
-        return tf.concat([
-            box_mins[..., 1:2],  # y_min
-            box_mins[..., 0:1],  # x_min
-            box_maxes[..., 1:2],  # y_max
-            box_maxes[..., 0:1]  # x_max
+        # TODO: check if swapping needed for NMS
+        boxes = tf.concat([box_mins[..., 1:2],  # y_min
+                           box_mins[..., 0:1],  # x_min
+                           box_maxes[..., 1:2],  # y_max
+                           box_maxes[..., 0:1]  # x_max
         ], axis=-1)
+
+        # return flatten out boxes (B*7*7, 4)
+        return tf.reshape(boxes, (-1, 4))
 
 
 
@@ -522,35 +549,45 @@ if __name__ == '__main__':
 
     sess = tf.InteractiveSession()
 
-    num_classes = 5
-    b = 1
+    grid = tf.meshgrid(tf.range(7), tf.range(7))
+    grid = tf.stack(grid, axis=-1)
 
-    y_pred = tf.convert_to_tensor(np.random.rand(8, 7, 7, (b*5) + num_classes), np.float32)
-    y_true = tf.convert_to_tensor(np.random.rand(8, 7, 7, (b*5) + num_classes), np.float32)
+    cell_size = tf.constant(int(448 / 7), dtype=tf.int32)
 
-    # test = tf.expand_dims(y_true[..., 4], axis=-1)
+    grid = grid * cell_size
+
+    print(grid.eval())
+    print(grid.get_shape())
+    # num_classes = 5
     #
-    # print(test.eval())
+    # b = 1
     #
-    # test2 = y_true[..., 4]
+    # y_pred = tf.convert_to_tensor(np.random.rand(8, 7, 7, (b*5) + num_classes), np.float32)
+    # y_true = tf.convert_to_tensor(np.random.rand(8, 7, 7, (b*5) + num_classes), np.float32)
     #
-    # print(test2.eval())
-
-    config_path = '/Users/adam.zvada/Documents/Dev/object-detection/config/test.yml'
-
-    yolo = YOLO(ConfigReader(config_path))
-
-    # a = [[0.5, 0.5, 64/448, 64/448], [0.0, 0.0, 64/448, 64/448]]
-    # b = [[1.0, 1.0, 64/448, 64/448], [1.0, 1.0, 64/448, 64/448]]
-
-    a = [[0.0, 0.0, 64/448, 64/448]]
-    b = [[1.0, 1.0, 64/448, 64/448]]
-
-
-    label_box = tf.convert_to_tensor(a, np.float32)
-    pred_box = tf.convert_to_tensor(b, np.float32)
-
-    # test IOU
-    print(yolo.iou(label_box, pred_box).eval())
-
-    # print(yolo.yolo_loss(predict=y_pred, label=y_true).eval())
+    # # test = tf.expand_dims(y_true[..., 4], axis=-1)
+    # #
+    # # print(test.eval())
+    # #
+    # # test2 = y_true[..., 4]
+    # #
+    # # print(test2.eval())
+    #
+    # config_path = '/Users/adam.zvada/Documents/Dev/object-detection/config/test.yml'
+    #
+    # yolo = YOLO(ConfigReader(config_path))
+    #
+    # # a = [[0.5, 0.5, 64/448, 64/448], [0.0, 0.0, 64/448, 64/448]]
+    # # b = [[1.0, 1.0, 64/448, 64/448], [1.0, 1.0, 64/448, 64/448]]
+    #
+    # a = [[0.0, 0.0, 64/448, 64/448]]
+    # b = [[1.0, 1.0, 64/448, 64/448]]
+    #
+    #
+    # label_box = tf.convert_to_tensor(a, np.float32)
+    # pred_box = tf.convert_to_tensor(b, np.float32)
+    #
+    # # test IOU
+    # print(yolo.iou(label_box, pred_box).eval())
+    #
+    # # print(yolo.yolo_loss(predict=y_pred, label=y_true).eval())

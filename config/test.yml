@@ -14,7 +14,7 @@ hyperparams:
   num_iterations: 12
   learning_rate: 0.0007
 model:
-  model_type: &model_type YOLOv1.4
+  model_type: &model_type YOLOv1.5
   trained_path:  trained_models/
   model_description: !join [*model_type, _, l, *num_layers, _, b, *batch_size]
   tensorboard_path: !join [tensorboard/, *model_type, _, l, *num_layers, _, b, *batch_size]
