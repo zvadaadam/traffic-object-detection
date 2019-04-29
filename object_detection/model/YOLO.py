@@ -344,8 +344,8 @@ class YOLO(CNNModel):
             loss_cord = tf.reduce_sum(loss_cord, axis=[1, 2, 3]) * lambda_cord
             loss_cord = tf.reduce_mean(loss_cord)
 
-            loss_size = cord_mask * (tf.sqrt(tf.abs(pred_size)) - tf.sqrt(label_size))
-            #loss_size = cord_mask * (pred_size - label_size)
+            #loss_size = cord_mask * (tf.sqrt(pred_size) - tf.sqrt(label_size))
+            loss_size = cord_mask * (pred_size - label_size)
             loss_size = tf.reduce_sum(tf.square(loss_size), axis=[1, 2, 3]) * lambda_cord
             loss_size = tf.reduce_mean(loss_size)
 
@@ -467,8 +467,6 @@ class YOLO(CNNModel):
         # convert to from (x,y,w,h) to (y1, x1, y2, x2) cause of nms
         boxes = self.convert_to_min_max_cord(boxes, batch_size)
 
-        self.debug = boxes
-
         boxes, scores, classes = self.filter_boxes(boxes, confidence, classes)
 
         # TODO: revert box swapping after NMS
@@ -537,6 +535,11 @@ class YOLO(CNNModel):
         # convert to min max coordinates
         box_mins = box_xy - (box_wh / 2.)
         box_maxes = box_xy + (box_wh / 2.)
+
+        # to relative sizes
+        grid_length = cell_size * tf.cast(grid_size, dtype=tf.float32)
+        box_mins = box_mins/grid_length
+        box_maxes = box_maxes/grid_length
 
         # TODO: check if swapping needed for NMS
         boxes = tf.concat([box_mins[..., 1:2],  # y_min

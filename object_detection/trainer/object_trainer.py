@@ -138,6 +138,7 @@ class ObjectTrainer(BaseTrain):
         # print(mask.shape)
         # print(mask)
         #
+        np.set_printoptions(formatter={'float_kind': '{:f}'.format})
         print(debug)
 
         print(boxes.shape)

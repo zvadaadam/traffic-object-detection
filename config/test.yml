@@ -10,7 +10,7 @@ hyperparams:
   batch_size: &batch_size 8
   num_layers: &num_layers 2
   num_classes: 5
-  num_epoches: 410
+  num_epoches: 500
   num_iterations: 10
   learning_rate: 0.00001
 model:
