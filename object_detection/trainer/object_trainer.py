@@ -138,8 +138,7 @@ class ObjectTrainer(BaseTrain):
         # print(mask.shape)
         # print(mask)
         #
-        print(np.sum(debug, axis=(1, 2, 3)))
-        print(debug.any())
+        print(debug)
 
         print(boxes.shape)
 
@@ -156,6 +155,7 @@ class ObjectTrainer(BaseTrain):
         print(f'Predicted: {boxes[0][0]}, {boxes[0][1]}, {boxes[0][2]}, {boxes[0][3]}')
         print(f'Label: {label_boxes[0][0]}, {label_boxes[0][1]}, {label_boxes[0][2]}, {label_boxes[0][3]}')
 
+        image_utils.plot_img(image_utils.add_bb_to_img(image[0], boxes[0][0], boxes[0][1], boxes[0][2], boxes[0][3]))
         # x_min, y_min, x_max, y_max = yolo_utils.from_yolo_to_cord(boxes[0], image[0].shape)
         # print(f'Predicted: {x_min}, {y_min}, {x_max}, {y_max}')
         # image_utils.add_bb_to_img(image[0], x_min, y_min, x_max, y_max)

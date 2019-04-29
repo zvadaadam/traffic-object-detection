@@ -60,6 +60,8 @@ class YOLO(CNNModel):
 
         self.opt = self.optimizer(self.loss, self.config.learning_rate())
 
+        self.debug = yolo_output
+
         with tf.variable_scope('eval'):
 
             boxes, scores, classes = self.eval_boxes(yolo_output)
@@ -239,19 +241,19 @@ class YOLO(CNNModel):
 
     def transform_output_logits(self, logits):
 
-        #cords = tf.sigmoid(logits[..., 0:2])
-        cords = logits[..., 0:2]
+        cords = tf.sigmoid(logits[..., 0:2])
+        #cords = logits[..., 0:2]
 
-        sizes = logits[..., 2:4]
+        sizes = tf.exp(logits[..., 2:4])
         #sizes = logits[..., 2:4]
 
         #self.debug = logits[..., 2:4]
 
-        #confidences = tf.sigmoid(logits[..., 4:5])
-        confidences = logits[..., 4:5]
+        confidences = tf.sigmoid(logits[..., 4:5])
+        #confidences = logits[..., 4:5]
 
-        #classes = tf.nn.softmax(logits[..., 5:])
-        classes = logits[..., 5:]
+        classes = tf.nn.softmax(logits[..., 5:])
+        #classes = logits[..., 5:]
 
         return tf.concat([
             cords,
@@ -263,16 +265,16 @@ class YOLO(CNNModel):
     def optimizer(self, loss, start_learning_rate=0.0001):
 
 
-        learning_rate = tf.train.cosine_decay_restarts(start_learning_rate, self.global_step_tensor, first_decay_steps=100,
-                                       t_mul=2.0, m_mul=1.2, alpha=0.0, name=None)
+        # learning_rate = tf.train.cosine_decay_restarts(start_learning_rate, self.global_step_tensor, first_decay_steps=100,
+        #                              t_mul=2.0, m_mul=1.2, alpha=0.0, name=None)
 
-        #learning_rate = tf.train.exponential_decay(self.config.learning_rate(), self.global_step_tensor, 50, 0.5, staircase=True)
+        #self.learning_rate = tf.train.exponential_decay(self.config.learning_rate(), self.global_step_tensor, 50, 0.9, staircase=True)
 
-        self.learning_rate = learning_rate
+        self.learning_rate = tf.constant(start_learning_rate)
 
-        tf.summary.scalar('learning_rate', learning_rate)
+        tf.summary.scalar('learning_rate', self.learning_rate)
 
-        opt = tf.train.AdamOptimizer(learning_rate).minimize(loss)
+        opt = tf.train.AdamOptimizer(self.learning_rate).minimize(loss)
 
         return opt
 
@@ -376,7 +378,6 @@ class YOLO(CNNModel):
             confidence_pred = tf.expand_dims(pred[..., 4], axis=-1)
 
             iou = self.iou(label[..., 0:4], pred[..., 0:4])
-            self.debug = iou
 
             # good detections
             object_detections = tf.cast(iou > 0.5, dtype=tf.float32)
@@ -457,26 +458,29 @@ class YOLO(CNNModel):
 
     def eval_boxes(self, y_pred):
 
-        boxes, scores, classes = self.filter_boxes(y_pred)
+        boxes = y_pred[..., :4]
+        confidence = tf.expand_dims(y_pred[..., 4], axis=-1)
+        classes = y_pred[..., :5]
 
         batch_size = y_pred.get_shape()[0]
 
         # convert to from (x,y,w,h) to (y1, x1, y2, x2) cause of nms
         boxes = self.convert_to_min_max_cord(boxes, batch_size)
 
+        self.debug = boxes
+
+        boxes, scores, classes = self.filter_boxes(boxes, confidence, classes)
+
         # TODO: revert box swapping after NMS
         return self.non_max_suppression(boxes, scores, classes)
 
 
-    def filter_boxes(self, y_pred, threshold=0.5):
+    def filter_boxes(self, boxes, confidence, classes, threshold=0.5):
         """Filters YOLO boxes by thresholding on object and class confidence."""
 
-        box_confidence = tf.expand_dims(y_pred[..., 4], axis=-1)
-        boxes = y_pred[..., :4]
-        box_class_probs = y_pred[..., :5]
 
         # Compute box scores
-        box_scores = box_confidence * box_class_probs
+        box_scores = confidence * classes
 
         # index of highest box score (return vector?)
         box_classes = tf.argmax(box_scores, axis=-1)
@@ -487,6 +491,7 @@ class YOLO(CNNModel):
         prediction_mask = (box_class_scores >= threshold)
 
         boxes = tf.boolean_mask(boxes, prediction_mask)
+
         scores = tf.boolean_mask(box_class_scores, prediction_mask)
         classes = tf.boolean_mask(box_classes, prediction_mask)
 
@@ -523,7 +528,7 @@ class YOLO(CNNModel):
         grid = grid * cell_size
         grid = tf.stack([grid] * batch_size)
 
-        grid = tf.reshape(grid, (-1, 2))
+        #grid = tf.reshape(grid, (-1, 2))
 
         # calculate absolute coordinates
         box_xy = (box_xy * cell_size) + grid
@@ -541,7 +546,9 @@ class YOLO(CNNModel):
         ], axis=-1)
 
         # return flatten out boxes (B*7*7, 4)
-        return tf.reshape(boxes, (-1, 4))
+        #return tf.reshape(boxes, (-1, 4))
+
+        return boxes
 
 
 

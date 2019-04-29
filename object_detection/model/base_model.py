@@ -41,15 +41,15 @@ class ModelBase(object):
         :param model_path:
         :return:
         """
-        pass
-        # if model_path != None:
-        #     self.saver.restore(session, model_path)
-        #
-        # latest_checkpoint = tf.train.latest_checkpoint(self.config.trained_model_path())
-        # if latest_checkpoint:
-        #     print("Loading model checkpoint {} ...\n".format(latest_checkpoint))
-        #     self.saver.restore(session, latest_checkpoint)
-        #     print("Model loaded")
+
+        if model_path != None:
+            self.saver.restore(session, model_path)
+
+        latest_checkpoint = tf.train.latest_checkpoint(self.config.trained_model_path())
+        if latest_checkpoint:
+            print("Loading model checkpoint {} ...\n".format(latest_checkpoint))
+            self.saver.restore(session, latest_checkpoint)
+            print("Model loaded")
 
     def init_cur_epoch(self):
         """
