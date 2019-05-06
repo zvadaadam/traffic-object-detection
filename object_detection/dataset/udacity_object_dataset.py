@@ -109,7 +109,8 @@ class UdacityObjectDataset(DatasetBase):
             raise Exception('YOLO supports images that are rectangles, if you don\'t like, change it')
 
         num_grids = self.config.grid_size()
-        grid_size = int(yolo_image_width/num_grids)
+        image_size = int(yolo_image_width)
+        cell_size = int(image_size/num_grids)
 
         df = pd.DataFrame()
 
@@ -144,16 +145,14 @@ class UdacityObjectDataset(DatasetBase):
                 [(x, y, w, h)] = yolo_utils.resize_cords([(x, y, w, h)], original_image_shape, resized_image_shape)
 
                 # TODO: move to func
-                origin_box_x = int(x / grid_size) * grid_size
-                origin_box_y = int(y / grid_size) * grid_size
+                origin_box_x = int(x / cell_size) * cell_size
+                origin_box_y = int(y / cell_size) * cell_size
 
-                rel_b_x = (x - origin_box_x) / grid_size
-                rel_b_y = (y - origin_box_y) / grid_size
+                rel_b_x = (x - origin_box_x) / cell_size
+                rel_b_y = (y - origin_box_y) / cell_size
 
-                rel_w = w / grid_size
-                rel_h = h / grid_size
-                # rel_w = w / yolo_image_width
-                # rel_h = h / yolo_image_height
+                rel_w = w / image_size
+                rel_h = h / image_size
 
                 # x_min, y_min, x_max, y_max = yolo_utils.from_yolo_to_cord(
                 #     ((rel_b_x * grid_size + origin_box_x)/yolo_image_width,
@@ -166,7 +165,7 @@ class UdacityObjectDataset(DatasetBase):
                 one_hot = box[7:]
 
                 # index of grid cell in YOLO image
-                g_x, g_y = int(origin_box_x/grid_size), int(origin_box_y/grid_size)
+                g_x, g_y = int(origin_box_x/cell_size), int(origin_box_y/cell_size)
 
                 label[g_x, g_y, :] = np.concatenate((rel_b_x, rel_b_y, rel_w, rel_h, 1, one_hot), axis=None)
 

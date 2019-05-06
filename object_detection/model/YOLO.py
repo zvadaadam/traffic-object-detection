@@ -56,11 +56,12 @@ class YOLO(CNNModel):
 
         yolo_output = self.yolo(x)
 
+        yolo_output = self.transform_output_logits(yolo_output)
+
         self.loss = self.yolo_loss(yolo_output, y)
 
         self.opt = self.optimizer(self.loss, self.config.learning_rate())
 
-        self.debug = yolo_output
 
         with tf.variable_scope('eval'):
 
@@ -235,25 +236,17 @@ class YOLO(CNNModel):
         logits = tf.reshape(fc2, shape=[self.config.batch_size(), grid_size, grid_size, boxes_per_cell*5 + num_classes])
         print('Logits: {}'.format(logits.get_shape()))
 
-        logits = self.transform_output_logits(logits)
-
         return logits
 
     def transform_output_logits(self, logits):
 
         cords = tf.sigmoid(logits[..., 0:2])
-        #cords = logits[..., 0:2]
 
         sizes = tf.exp(logits[..., 2:4])
-        #sizes = logits[..., 2:4]
-
-        #self.debug = logits[..., 2:4]
 
         confidences = tf.sigmoid(logits[..., 4:5])
-        #confidences = logits[..., 4:5]
 
-        classes = tf.nn.softmax(logits[..., 5:])
-        #classes = logits[..., 5:]
+        classes = logits[..., 5:]
 
         return tf.concat([
             cords,
@@ -264,13 +257,21 @@ class YOLO(CNNModel):
 
     def optimizer(self, loss, start_learning_rate=0.0001):
 
+        # self.learning_rate = tf.cond(tf.math.greater(tf.constant(300), self.global_step_tensor),
+        #             lambda: tf.constant(start_learning_rate),
+        #             lambda: tf.train.polynomial_decay(0.0001, self.global_step_tensor - tf.constant(300), 50, 0.0000001))
+
 
         # learning_rate = tf.train.cosine_decay_restarts(start_learning_rate, self.global_step_tensor, first_decay_steps=100,
         #                              t_mul=2.0, m_mul=1.2, alpha=0.0, name=None)
 
         #self.learning_rate = tf.train.exponential_decay(self.config.learning_rate(), self.global_step_tensor, 50, 0.9, staircase=True)
 
+        #tf.train.polynomial_decay(self.config.learning_rate(), self.global_step_tensor, 50, 0.0000001)
+
         self.learning_rate = tf.constant(start_learning_rate)
+
+        print(start_learning_rate)
 
         tf.summary.scalar('learning_rate', self.learning_rate)
 
@@ -339,21 +340,30 @@ class YOLO(CNNModel):
             pred_size = pred[..., 2:4]
             label_size = label[..., 2:4]
 
-            loss_cord = cord_mask * tf.square(pred_cord - label_cord)
+            # hack from darknet: box punishment - give higher weights to small boxes
+            box_loss_scale = 2. - (label_size[..., 0] * label_size[..., 1])
+            box_loss_scale = tf.expand_dims(box_loss_scale, axis=-1)
 
-            loss_cord = tf.reduce_sum(loss_cord, axis=[1, 2, 3]) * lambda_cord
+            a = tf.constant(3.14, shape=box_loss_scale.get_shape(), dtype=tf.float32)
+            b = tf.constant(0, shape=box_loss_scale.get_shape(), dtype=tf.float32)
+            self.debug = tf.concat([label[..., 2:4], tf.where(tf.greater(0., box_loss_scale), a, b), box_loss_scale], axis=-1)
+
+            # inverting ground truth to match network output for gradient update (pred_size is transformed using exp)
+            pred_size = tf.math.log(pred_size)
+            label_size = tf.math.log(label_size)
+            # numerical stability cause of using log transform
+            label_size = tf.where(tf.math.is_inf(label_size), tf.zeros_like(label_size), label_size)
+            pred_size = tf.where(tf.math.is_inf(pred_size), tf.zeros_like(pred_size), pred_size)
+
+            # calculate loss for x,y
+            loss_cord = (cord_mask * tf.square(pred_cord - label_cord)) * box_loss_scale
+            loss_cord = tf.reduce_sum(loss_cord, axis=[1, 2, 3]) * lambda_cord # TODO: test if should delete lambda?
             loss_cord = tf.reduce_mean(loss_cord)
 
-            #loss_size = cord_mask * (tf.sqrt(pred_size) - tf.sqrt(label_size))
-            loss_size = cord_mask * (pred_size - label_size)
-            loss_size = tf.reduce_sum(tf.square(loss_size), axis=[1, 2, 3]) * lambda_cord
+            # calculate loss for w,h
+            loss_size = (cord_mask * tf.square(pred_size - label_size)) * box_loss_scale
+            loss_size = tf.reduce_sum(loss_size, axis=[1, 2, 3]) * lambda_cord # TODO: test if should delete lambda?
             loss_size = tf.reduce_mean(loss_size)
-
-            # loss_cord = tf.multiply(indicator_coord, tf.squared_difference(label_cord, pred_cord))
-            # loss_cord = tf.reduce_sum(loss_cord)
-            #
-            # loss_size = tf.multiply(indicator_coord, tf.squared_difference(label_size, pred_size))
-            # loss_size = tf.reduce_sum(loss_size)
 
         return loss_size, loss_cord
 
@@ -405,8 +415,8 @@ class YOLO(CNNModel):
         true_x, true_y, true_w, true_h = tf.split(label_box, 4, axis=3)
 
         # TODO: have width and height relative to the grid cell from dataset
-        pred_w, pred_h = (448*pred_w)*(1/64), (448*pred_h)*(1/64)
-        true_w, true_h = (448*true_w)*(1/64), (448*true_h)*(1/64)
+        # pred_w, pred_h = (448*pred_w)*(1/64), (448*pred_h)*(1/64)
+        # true_w, true_h = (448*true_w)*(1/64), (448*true_h)*(1/64)
 
         # from to (x, y, w, h) to (x_min, y_min, x_max, y_max)
         pred_x_min, pred_y_min = pred_x - pred_w / 2, pred_y - pred_h / 2
@@ -434,7 +444,7 @@ class YOLO(CNNModel):
         # union of area coverd by true and pred boxes
         union = true_area + pred_area - inter_area
 
-        # add 0.00001 for numerical stability
+        # adding 0.00001 for numerical stability
         return inter_area / (union + 0.0001)
 
     def classes_loss(self, label, pred):
@@ -450,8 +460,10 @@ class YOLO(CNNModel):
             class_label = label[..., 5:]
             class_pred = pred[..., 5:]
 
-            loss_class = mask_class * (class_pred - class_label)
-            loss_class = tf.reduce_sum(tf.square(loss_class), axis=[1, 2, 3])
+            #loss_class = mask_class * (class_pred - class_label)
+            #loss_class = tf.reduce_sum(tf.square(loss_class), axis=[1, 2, 3])
+            loss_class = mask_class * tf.nn.sigmoid_cross_entropy_with_logits(labels=class_label, logits=class_pred)
+
             loss_class = tf.reduce_mean(loss_class)
 
         return loss_class
@@ -466,6 +478,8 @@ class YOLO(CNNModel):
 
         # convert to from (x,y,w,h) to (y1, x1, y2, x2) cause of nms
         boxes = self.convert_to_min_max_cord(boxes, batch_size)
+
+        #self.debug = [y_pred[..., :4], boxes]
 
         boxes, scores, classes = self.filter_boxes(boxes, confidence, classes)
 
@@ -502,6 +516,8 @@ class YOLO(CNNModel):
 
         nms_index = tf.image.non_max_suppression(boxes, scores, max_boxes_tensor,
                                                  iou_threshold=iou_threshold, score_threshold=score_threshold)
+
+        # nms_index = tf.image.non_max_suppression(boxes, scores, max_boxes_tensor, iou_threshold=iou_threshold)
 
         boxes = tf.gather(boxes, nms_index)
         scores = tf.gather(scores, nms_index)

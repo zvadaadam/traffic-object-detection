@@ -47,8 +47,7 @@ class CNNModel(ModelBase):
 
             output = conv.apply(inputs)
 
-            # x = tf.layers.batch_normalization(x, training=True, momentum=0.99, epsilon=0.001, center=True,
-            #                                   scale=True)
+            output = tf.layers.batch_normalization(output)
 
             # bias summary
             tf.summary.histogram(scope_name + '/bias', conv.bias)
