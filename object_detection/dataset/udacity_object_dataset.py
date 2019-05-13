@@ -13,6 +13,9 @@ class UdacityObjectDataset(DatasetBase):
     def __init__(self, config: ConfigReader):
         super(UdacityObjectDataset, self).__init__(config)
 
+        # TODO: read from config
+        self.anchors = [(23/448, 27/448), (37/448, 58/448), (81/448, 82/448)]
+
         self.load_dataset()
 
         print(self.df.isnull().values.any())
@@ -100,74 +103,99 @@ class UdacityObjectDataset(DatasetBase):
 
         # YOLO: Input image: 448x448, output: 7x7x(B*5 + num_classes)
 
+        # yolo parameters
         num_classes = self.config.num_classes()
-        B = self.config.boxes_per_cell()
         yolo_image_width = self.config.image_width()
         yolo_image_height = self.config.image_height()
 
         if yolo_image_width != yolo_image_height:
-            raise Exception('YOLO supports images that are rectangles, if you don\'t like, change it')
+            raise Exception('YOLO supports images that are rectangles, if you don\'t like, try to change it...')
 
-        num_grids = self.config.grid_size()
         image_size = int(yolo_image_width)
+        num_grids = self.config.grid_size()
         cell_size = int(image_size/num_grids)
+        num_anchors = len(self.anchors)
 
         df = pd.DataFrame()
 
         labels = []
         images = []
 
+        # TODO: SIMPLIFY AND CREATE FUNCS
         for frame, boxes in tqdm(dataset.groupby(['frame'])):
-
             # load images
             img = image_utils.load_img(self.config.dataset_path(), frame)
             original_image_shape = img.shape
-
-            #image_utils.plot_img(img)
 
             # resize image to yolo wxh
             resized_img = image_utils.resize_image(img, self.config.image_height(), self.config.image_height())
             resized_image_shape = resized_img.shape
 
-            #image_utils.plot_img(resized_img)
-
             images.append(resized_img)
 
             # create zeroed out yolo label
-            label = np.zeros(shape=(num_grids, num_grids, B * 5 + num_classes))
+            label = np.zeros(shape=(num_grids, num_grids, num_anchors, 5 + num_classes))
 
             for box in boxes.itertuples(index=None, name=None):
 
-                # convert from (x_min, y_min, x_max, y_max) to (x, y, w, h)
-                x, y, w, h = yolo_utils.to_yolo_cords(box[1], box[2], box[3], box[4], original_image_shape)
+                # calculate size ratios, img - (h, w, 3)
+                width_ratio = resized_image_shape[1]/original_image_shape[1]
+                height_ratio = resized_image_shape[0]/original_image_shape[0]
 
-                # resize to yolo WxH format
-                [(x, y, w, h)] = yolo_utils.resize_cords([(x, y, w, h)], original_image_shape, resized_image_shape)
+                # resize cords
+                x_min, x_max = width_ratio * float(box[1]), width_ratio * float(box[3])
+                y_min, y_max = height_ratio * float(box[2]), height_ratio * float(box[4])
 
-                # TODO: move to func
+                #image_utils.plot_img(image_utils.add_bb_to_img(resized_img, int(x_min), int(y_min), int(x_max), int(y_max)))
+
+                if (x_max < x_min or y_max < y_min):
+                    raise Exception('Invalid groud truth data, Max < Min')
+
+                # convert to x, y, w, h
+                x = (x_min + x_max)/2
+                y = (y_min + y_max)/2
+                w = x_max - x_min
+                h = y_max - y_min
+
+                # make x, y relative to its cell
                 origin_box_x = int(x / cell_size) * cell_size
                 origin_box_y = int(y / cell_size) * cell_size
 
-                rel_b_x = (x - origin_box_x) / cell_size
-                rel_b_y = (y - origin_box_y) / cell_size
+                cell_x = (x - origin_box_x) / cell_size
+                cell_y = (y - origin_box_y) / cell_size
 
-                rel_w = w / image_size
-                rel_h = h / image_size
+                # cell index
+                g_x, g_y = int(origin_box_x / cell_size), int(origin_box_y / cell_size)
 
-                # x_min, y_min, x_max, y_max = yolo_utils.from_yolo_to_cord(
-                #     ((rel_b_x * grid_size + origin_box_x)/yolo_image_width,
-                #      (rel_b_y * grid_size + origin_box_y)/yolo_image_height,
-                #      rel_w, rel_h),
-                #     resized_image_shape)
-                # image_utils.plot_img(image_utils.add_bb_to_img(resized_img, x_min, y_min, x_max, y_max))
-
-                # one hot encoding for box classification
+                # class data
                 one_hot = box[7:]
 
-                # index of grid cell in YOLO image
-                g_x, g_y = int(origin_box_x/cell_size), int(origin_box_y/cell_size)
+                # x_min = int( ((cell_x * 64) + g_x * 64) - w/2)
+                # y_min = int( ((cell_y * 64) + g_y * 64) - h/2)
+                #
+                # x_max = int( ((cell_x * 64) + g_x * 64) + w/2)
+                # y_max = int( ((cell_y * 64) + g_y * 64) + h/2)
 
-                label[g_x, g_y, :] = np.concatenate((rel_b_x, rel_b_y, rel_w, rel_h, 1, one_hot), axis=None)
+                #image_utils.plot_img(image_utils.add_bb_to_img(resized_img, x_min, y_min, x_max, y_max))
+
+                for i, (rel_anchor_width, rel_anchor_height) in enumerate(self.anchors):
+
+                    # calculate w,h in respect to anchors size
+                    a_w = w / (rel_anchor_width * image_size)
+                    a_h = h / (rel_anchor_height * image_size)
+
+                    label[g_x, g_y, i, :] = np.concatenate((cell_x, cell_y, a_w, a_h, 1, one_hot), axis=None)
+
+                    print(f'{cell_x}, {cell_y}, {a_w}, {a_h}')
+
+                    x_min = int((((cell_x*64) + g_x*64) - (a_w * (rel_anchor_width * image_size)/2)))
+                    y_min = int((((cell_y*64) + g_y*64) - (a_h * (rel_anchor_height * image_size)/2)))
+
+                    x_max = int((((cell_x*64) + g_x*64) + (a_w * (rel_anchor_width * image_size)/2)))
+                    y_max = int((((cell_y*64) + g_y*64) + (a_h * (rel_anchor_height * image_size)/2)))
+
+                    #image_utils.plot_img(image_utils.add_bb_to_img(resized_img, x_min, y_min, x_max, y_max))
+
 
             labels.append(label)
 
