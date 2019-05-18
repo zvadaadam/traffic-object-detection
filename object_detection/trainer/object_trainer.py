@@ -136,8 +136,6 @@ class ObjectTrainer(BaseTrain):
         )
         np.set_printoptions(formatter={'float_kind': '{:f}'.format})
         print(debug)
-        # print(mask.shape)
-        # print(mask)
 
         # -----------TESTING-----------
         if boxes.shape[0] == 0:
@@ -145,12 +143,11 @@ class ObjectTrainer(BaseTrain):
             return loss, loss_cord, loss_size, loss_obj, loss_noobj, loss_class, learning_rate
 
         label_boxes = []
-        for label in np.reshape(labels[0], newshape=[49, 10]):
-            if label[0] != 0.0 and label[1] != 0.0:
-                label_boxes.append(label)
+        for label in np.reshape(labels[0], newshape=[49, 3, 10]):
+            label_boxes.append(label)
 
         print(f'Predicted: {boxes[0][0]}, {boxes[0][1]}, {boxes[0][2]}, {boxes[0][3]}')
-        print(f'Label: {label_boxes[0][0]}, {label_boxes[0][1]}, {label_boxes[0][2]}, {label_boxes[0][3]}')
+        print(f'Label: {label_boxes[0][0][0]}, {label_boxes[0][0][1]}, {label_boxes[0][0][2]}, {label_boxes[0][0][3]}')
 
         #image_utils.plot_img(image_utils.add_bb_to_img(image[0], boxes[0][0], boxes[0][1], boxes[0][2], boxes[0][3]))
 

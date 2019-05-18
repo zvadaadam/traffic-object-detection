@@ -14,11 +14,12 @@ def main_train(config: ConfigReader):
 
     dataset = UdacityObjectDataset(config)
 
+    # TODO: calculate anchors using k-means
     model = YOLO(config)
 
     with tf.Session() as session:
 
-        #session = tf_debug.TensorBoardDebugWrapperSession(session, 'prga-004810.rad.int.avast.com:6064', send_traceback_and_source_code=False)
+        #session = tf_debug.TensorBoardDebugWrapperSession(session, 'PRGA-004810.local:6064', send_traceback_and_source_code=False)
 
         trainer = ObjectTrainer(session, model, dataset, config)
 

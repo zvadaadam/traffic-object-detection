@@ -61,6 +61,11 @@ class ConfigReader(object):
     def boxes_per_cell(self):
         return self.yolo['boxes_per_cell']
 
+    def num_anchors(self):
+        return self.yolo['num_anchors']
+
+    def anchores(self):
+        return self.yolo['anchores']
 
     # --HYPERPARAMETERS--
 

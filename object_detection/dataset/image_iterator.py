@@ -21,7 +21,8 @@ class ImageIterator(object):
 
         dataset = tf.data.Dataset.from_tensor_slices((self.model.x, self.model.y))
 
-        dataset = dataset.batch(self.config.batch_size(), drop_remainder=True).shuffle(buffer_size=100).repeat()
+        # TODO: shufle
+        dataset = dataset.batch(self.config.batch_size(), drop_remainder=True).repeat()
 
         dataset_iterator = dataset.make_initializable_iterator()
 
@@ -33,7 +34,7 @@ class ImageIterator(object):
         x, y = generic_iterator.get_next()
         inputs = {
             'x': x,
-            'y': y
+            'y': y,
         }
 
         if mode == 'train':

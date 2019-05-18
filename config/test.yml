@@ -4,17 +4,17 @@ dataset:
   name: &dataset_name udacity
   root_dataset: &root_dataset object-dataset/
   dataset_path: !join [*root_dataset, *dataset_name]
-  test_size: 0.3
-  num_classes: 5
+  test_size: 0.1
+  num_classes: 3
 hyperparams:
   batch_size: &batch_size 8
   num_layers: &num_layers 2
-  num_classes: 5
+  num_classes: 3
   num_epoches: 300
   num_iterations: 10
   learning_rate: 0.00001
 model:
-  model_type: &model_type YOLOv2.0
+  model_type: &model_type YOLOv2.3
   trained_path:  trained_models/
   model_description: !join [*model_type, _, l, *num_layers, _, b, *batch_size]
   tensorboard_path: !join [tensorboard/, *model_type, _, l, *num_layers, _, b, *batch_size]
@@ -24,3 +24,5 @@ yolo:
   image_width: 448
   grid_size: 7
   boxes_per_cell: 1
+  num_anchors: 3
+  anchores: [(0.1, 0.15), (0.3, 0.25), (0.4, 0.5)]

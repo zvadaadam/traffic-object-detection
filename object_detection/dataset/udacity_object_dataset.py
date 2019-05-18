@@ -60,7 +60,7 @@ class UdacityObjectDataset(DatasetBase):
         occlusions = []
         labels = []
 
-        for data_row in data[0:500]:
+        for data_row in data[0:50]:
             frames.append(data_row[0])
             x_min.append(data_row[1])
             y_min.append(data_row[2])
@@ -96,6 +96,8 @@ class UdacityObjectDataset(DatasetBase):
 
         df_dummies = pd.get_dummies(df['label'], prefix='category')
         df = pd.concat([df, df_dummies], axis=1)
+
+        self.df_true = df
 
         return self.yolo_dataset_format(df)
 
@@ -146,6 +148,8 @@ class UdacityObjectDataset(DatasetBase):
                 x_min, x_max = width_ratio * float(box[1]), width_ratio * float(box[3])
                 y_min, y_max = height_ratio * float(box[2]), height_ratio * float(box[4])
 
+                print(f'{x_min}, {y_min}, {x_max}, {y_max}')
+
                 #image_utils.plot_img(image_utils.add_bb_to_img(resized_img, int(x_min), int(y_min), int(x_max), int(y_max)))
 
                 if (x_max < x_min or y_max < y_min):
@@ -186,13 +190,15 @@ class UdacityObjectDataset(DatasetBase):
 
                     label[g_x, g_y, i, :] = np.concatenate((cell_x, cell_y, a_w, a_h, 1, one_hot), axis=None)
 
-                    print(f'{cell_x}, {cell_y}, {a_w}, {a_h}')
+                    #print(f'{cell_x}, {cell_y}, {a_w}, {a_h}')
 
                     x_min = int((((cell_x*64) + g_x*64) - (a_w * (rel_anchor_width * image_size)/2)))
                     y_min = int((((cell_y*64) + g_y*64) - (a_h * (rel_anchor_height * image_size)/2)))
 
                     x_max = int((((cell_x*64) + g_x*64) + (a_w * (rel_anchor_width * image_size)/2)))
                     y_max = int((((cell_y*64) + g_y*64) + (a_h * (rel_anchor_height * image_size)/2)))
+
+                    print(f'{x_min}, {y_min}, {x_max}, {y_max}')
 
                     #image_utils.plot_img(image_utils.add_bb_to_img(resized_img, x_min, y_min, x_max, y_max))
 
