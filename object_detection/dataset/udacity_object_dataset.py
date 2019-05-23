@@ -130,7 +130,9 @@ class UdacityObjectDataset(DatasetBase):
         for frame, boxes in tqdm(dataset.groupby(['frame'])):
             # load images
             img = image_utils.load_img(self.config.dataset_path(), frame)
-            print(img)
+            if img == None:
+                continue
+
             original_image_shape = img.shape
 
             # resize image to yolo wxh
