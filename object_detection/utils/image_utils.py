@@ -6,8 +6,7 @@ import matplotlib.pyplot as plt
 
 def load_img(dataset_path, image_path):
 
-    path = os.path.join('/content/drive/My\ Drive/ObjectDetection/object-dataset/udacity/', image_path)
-    print(path)
+    path = os.path.join('/content/drive/My Drive/ObjectDetection/object-dataset/udacity/', image_path)
 
     return cv2.imread(path)
 

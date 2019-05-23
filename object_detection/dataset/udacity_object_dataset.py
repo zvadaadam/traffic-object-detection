@@ -133,6 +133,8 @@ class UdacityObjectDataset(DatasetBase):
             if img == None:
                 continue
 
+            print('Loaded Image...')
+
             original_image_shape = img.shape
 
             # resize image to yolo wxh
