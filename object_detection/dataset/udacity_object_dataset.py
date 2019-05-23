@@ -14,7 +14,7 @@ class UdacityObjectDataset(DatasetBase):
         super(UdacityObjectDataset, self).__init__(config)
 
         # TODO: read from config
-        self.anchors = [(23/448, 27/448), (37/448, 58/448), (81/448, 82/448)]
+        self.anchors = [[0.05524553571428571, 0.045619419642857144], [0.022042410714285716, 0.029296875], [0.13853236607142858, 0.10407366071428571]]
 
         self.load_dataset()
 
@@ -60,7 +60,8 @@ class UdacityObjectDataset(DatasetBase):
         occlusions = []
         labels = []
 
-        for data_row in data[0:50]:
+        #for data_row in data[0:500]:
+        for data_row in data:
             frames.append(data_row[0])
             x_min.append(data_row[1])
             y_min.append(data_row[2])
@@ -148,7 +149,7 @@ class UdacityObjectDataset(DatasetBase):
                 x_min, x_max = width_ratio * float(box[1]), width_ratio * float(box[3])
                 y_min, y_max = height_ratio * float(box[2]), height_ratio * float(box[4])
 
-                print(f'{x_min}, {y_min}, {x_max}, {y_max}')
+                #print(f'{x_min}, {y_min}, {x_max}, {y_max}')
 
                 #image_utils.plot_img(image_utils.add_bb_to_img(resized_img, int(x_min), int(y_min), int(x_max), int(y_max)))
 
@@ -198,7 +199,7 @@ class UdacityObjectDataset(DatasetBase):
                     x_max = int((((cell_x*64) + g_x*64) + (a_w * (rel_anchor_width * image_size)/2)))
                     y_max = int((((cell_y*64) + g_y*64) + (a_h * (rel_anchor_height * image_size)/2)))
 
-                    print(f'{x_min}, {y_min}, {x_max}, {y_max}')
+                    #print(f'{x_min}, {y_min}, {x_max}, {y_max}')
 
                     #image_utils.plot_img(image_utils.add_bb_to_img(resized_img, x_min, y_min, x_max, y_max))
 

@@ -3,18 +3,18 @@ info:
 dataset:
   name: &dataset_name udacity
   root_dataset: &root_dataset object-dataset/
-  dataset_path: !join [*root_dataset, *dataset_name]
-  test_size: 0.1
-  num_classes: 3
+  dataset_path: !join [*root_dataset, *dataset_name] #drive/My\ Drive/ObjectDetection/object-dataset
+  test_size: 0.3
+  num_classes: 5
 hyperparams:
-  batch_size: &batch_size 8
+  batch_size: &batch_size 32
   num_layers: &num_layers 2
-  num_classes: 3
-  num_epoches: 300
-  num_iterations: 10
+  num_classes: 5
+  num_epoches: 200
+  num_iterations: 500
   learning_rate: 0.00001
 model:
-  model_type: &model_type YOLOv2.3
+  model_type: &model_type YOLOv2.5
   trained_path:  trained_models/
   model_description: !join [*model_type, _, l, *num_layers, _, b, *batch_size]
   tensorboard_path: !join [tensorboard/, *model_type, _, l, *num_layers, _, b, *batch_size]
@@ -25,4 +25,4 @@ yolo:
   grid_size: 7
   boxes_per_cell: 1
   num_anchors: 3
-  anchores: [(0.1, 0.15), (0.3, 0.25), (0.4, 0.5)]
+  anchores: [[0.05524553571428571, 0.045619419642857144], [0.022042410714285716, 0.029296875], [0.13853236607142858, 0.10407366071428571]]
