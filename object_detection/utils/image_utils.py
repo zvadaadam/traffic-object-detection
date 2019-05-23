@@ -5,6 +5,9 @@ import matplotlib.pyplot as plt
 
 
 def load_img(dataset_path, image_path):
+
+    print(os.path.join(dataset_path, image_path))
+
     return cv2.imread(os.path.join(dataset_path, image_path))
 
 

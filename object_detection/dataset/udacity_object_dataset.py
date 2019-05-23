@@ -41,12 +41,10 @@ class UdacityObjectDataset(DatasetBase):
 
         print(f'Loading {self.config.dataset_name()} dataset...')
         dataset_path = self.config.dataset_path() + '/labels.csv'
-
-        print(dataset_path )
+        print(dataset_path)
 
         with open(dataset_path, 'r') as f:
             data = f.readlines()
-            print(data)
 
         data = [item.split() for item in data]
 
