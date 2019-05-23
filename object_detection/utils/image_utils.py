@@ -6,9 +6,9 @@ import matplotlib.pyplot as plt
 
 def load_img(dataset_path, image_path):
 
-    print(os.path.join(dataset_path, image_path))
+    path = os.path.join('/content/drive/My Drive/ObjectDetection/object-dataset/udacity/', image_path)
 
-    return cv2.imread(os.path.join(dataset_path, image_path))
+    return cv2.imread(path)
 
 
 def add_bb_to_img(img, x_min, y_min, x_max, y_max, is_occulded=False):
