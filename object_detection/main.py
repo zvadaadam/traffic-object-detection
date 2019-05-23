@@ -1,3 +1,6 @@
+import sys
+sys.path.append('./../')
+
 import os
 import tensorflow as tf
 from tensorflow.python import debug as tf_debug
