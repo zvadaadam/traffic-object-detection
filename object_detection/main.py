@@ -1,5 +1,5 @@
 import sys
-sys.path.append('./../')
+sys.path.append('/content/traffic-object-detection')
 
 import os
 import tensorflow as tf
