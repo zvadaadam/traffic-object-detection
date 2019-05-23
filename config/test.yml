@@ -2,7 +2,7 @@ info:
   model_name: Object Detection
 dataset:
   name: &dataset_name udacity
-  root_dataset: &root_dataset /content/drive/My\ Drive/ObjectDetection/object-dataset/ #object-dataset/
+  root_dataset: &root_dataset /content/drive/My Drive/ObjectDetection/object-dataset/ #object-dataset/
   dataset_path:  !join [*root_dataset, *dataset_name]
   test_size: 0.3
   num_classes: 5
