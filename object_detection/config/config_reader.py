@@ -115,9 +115,9 @@ class ConfigReader(object):
 
     def _absolute_path(self, path):
 
-        if not os.path.isabs(path):
-            print(os.path.join(self.ROOT_DIR, path))
-            return os.path.join(self.ROOT_DIR, path)
+        # if not os.path.isabs(path):
+        #     print(os.path.join(self.ROOT_DIR, path))
+        #     return os.path.join(self.ROOT_DIR, path)
 
         print(path)
         return path
