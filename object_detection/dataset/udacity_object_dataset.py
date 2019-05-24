@@ -130,7 +130,7 @@ class UdacityObjectDataset(DatasetBase):
         for frame, boxes in tqdm(dataset.groupby(['frame'])):
             # load images
             img = image_utils.load_img(self.config.dataset_path(), frame)
-            if img == None:
+            if type(img) is not np.ndarray:
                 continue
 
             print('Loaded Image...')
