@@ -119,7 +119,6 @@ class ConfigReader(object):
         #     print(os.path.join(self.ROOT_DIR, path))
         #     return os.path.join(self.ROOT_DIR, path)
 
-        print(path)
         return path
 
 if __name__ == '__main__':
