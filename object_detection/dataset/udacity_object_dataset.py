@@ -133,8 +133,6 @@ class UdacityObjectDataset(DatasetBase):
             if type(img) is not np.ndarray:
                 continue
 
-            print('Loaded Image...')
-
             original_image_shape = img.shape
 
             # resize image to yolo wxh
