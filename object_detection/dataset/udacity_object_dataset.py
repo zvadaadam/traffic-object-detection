@@ -63,7 +63,7 @@ class UdacityObjectDataset(DatasetBase):
         labels = []
 
         #for data_row in data[0:500]:
-        for data_row in data:
+        for data_row in data[0:1000]:
             frames.append(data_row[0])
             x_min.append(data_row[1])
             y_min.append(data_row[2])
