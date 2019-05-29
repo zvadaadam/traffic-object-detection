@@ -14,7 +14,9 @@ class UdacityObjectDataset(DatasetBase):
         super(UdacityObjectDataset, self).__init__(config)
 
         # TODO: read from config
-        self.anchors = [[0.05524553571428571, 0.045619419642857144], [0.022042410714285716, 0.029296875], [0.13853236607142858, 0.10407366071428571]]
+        self.anchors = [[0.05524553571428571, 0.045619419642857144],
+                        [0.022042410714285716, 0.029296875],
+                        [0.13853236607142858, 0.10407366071428571]]
 
         self.load_dataset()
 
@@ -60,7 +62,6 @@ class UdacityObjectDataset(DatasetBase):
         occlusions = []
         labels = []
 
-        #for data_row in data[0:500]:
         for data_row in data:
             frames.append(data_row[0])
             x_min.append(data_row[1])

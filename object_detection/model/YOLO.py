@@ -279,7 +279,7 @@ class YOLO(CNNModel):
 
         tf.summary.scalar('learning_rate', self.learning_rate)
 
-        opt = tf.train.AdamOptimizer(self.learning_rate).minimize(loss)
+        # opt = tf.train.AdamOptimizer(self.learning_rate).minimize(loss)
 
         opt = tf.train.AdamOptimizer(self.learning_rate)
         grads = opt.compute_gradients(loss)
@@ -326,10 +326,6 @@ class YOLO(CNNModel):
     def cord_loss(self, label, pred, lambda_cord=5):
         # INPUT: (?, grid_size, grid_size, num_anchors, 5 + num_classes)
 
-        # TODO: we ASSUME B = 1
-
-        # always is 0 or 1
-
         #indicator_coord = tf.math.ceil(indicator_coord)
 
         # ---TESTING PURPOSE----
@@ -348,6 +344,7 @@ class YOLO(CNNModel):
             pred_size = pred[..., 2:4]
             label_size = label[..., 2:4]
 
+            # TODO: Add punishment?
             # hack from darknet: box punishment - give higher weights to small boxes
             # box_loss_scale = 2. - (label_size[..., 0] * label_size[..., 1])
             # box_loss_scale = tf.expand_dims(box_loss_scale, axis=-1)

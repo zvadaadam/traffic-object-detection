@@ -28,7 +28,8 @@ def main_train(config: ConfigReader):
 
 if __name__ == '__main__':
 
-    config_path = '/Users/adam.zvada/Documents/Dev/object-detection/config/test.yml'
+    config_path = '/home/zvadaada/traffic-object-detection/config/test.yml'
+    # config_path = '/Users/adam.zvada/Documents/Dev/object-detection/config/test.yml'
     # config_path = '/home/adam.zvada/dev/object-detection/config/test.yml'
 
     main_train(ConfigReader(config_path))

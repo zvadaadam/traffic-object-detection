@@ -7,11 +7,11 @@ dataset:
   test_size: 0.3
   num_classes: 5
 hyperparams:
-  batch_size: &batch_size 32
+  batch_size: &batch_size 512
   num_layers: &num_layers 2
   num_classes: 5
-  num_epoches: 200
-  num_iterations: 500
+  num_epoches: 50
+  num_iterations: 20
   learning_rate: 0.00001
 model:
   model_type: &model_type YOLOv2.5
