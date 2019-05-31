@@ -3,9 +3,9 @@ info:
 dataset:
   name: &dataset_name udacity
   root_dataset: &root_dataset object-dataset/
-  dataset_path: !join [*root_dataset, *dataset_name] #drive/My\ Drive/ObjectDetection/object-dataset
-  tfrecords_train_path: object_detection/udacity_train.tfrecords # TODO: move to its proper folder
-  tfrecords_test_path: object_detection/udacity_test.tfrecords # TODO: move to its proper folder
+  dataset_path: !join [*root_dataset, *dataset_name]
+  tfrecords_train_path: !join [*root_dataset, udacity_train.tfrecords]
+  tfrecords_test_path: !join [*root_dataset, udacity_test.tfrecords]
   test_size: 0.3
   num_classes: 5
 hyperparams:

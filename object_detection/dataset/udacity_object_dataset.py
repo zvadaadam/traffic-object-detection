@@ -230,7 +230,7 @@ class UdacityObjectDataset(DatasetBase):
         images = np.array(df['image'].values.tolist(), dtype=np.float32)
         labels = np.array(df['label'].values.tolist(), dtype=np.float32)
 
-        with tf.python_io.TFRecordWriter(f'udacity_{type}.tfrecords') as writer:
+        with tf.python_io.TFRecordWriter(f'{self.config.root_dataset()}/udacity_{type}.tfrecords') as writer:
 
             for image, labels in tqdm(zip(images, labels)):
                 encoded_image = cv2.imencode('.jpg', image)[1].tostring()

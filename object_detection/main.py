@@ -15,7 +15,6 @@ def main_train(config: ConfigReader):
 
     dataset = UdacityObjectDataset(config)
 
-    # TODO: calculate anchors using k-means
     model = YOLO(config)
 
     tf_config = tf.ConfigProto()

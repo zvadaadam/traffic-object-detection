@@ -32,6 +32,14 @@ class ConfigReader(object):
     def dataset_name(self):
         return self.dataset['name']
 
+    def root_dataset(self):
+        path = self.dataset['root_dataset']
+
+        if path == None:
+            return None
+
+        return self._absolute_path(path)
+
 
     def dataset_path(self):
         path = self.dataset['dataset_path']
