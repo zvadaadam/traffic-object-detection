@@ -17,13 +17,12 @@ class ObjectTrainer(BaseTrain):
         self.options = options
         self.run_metadata = run_metadata
 
-        self.logger = TensorLogger(log_path=self.config.tensorboard_path(), session=self.session)
         self.iterator = ImageIterator(self.session, self.dataset, self.config, self.model)
 
-    def dataset_iterator(self, mode='train'):
+        self.train_handle = None
+        self.test_handle = None
 
-        # model_train_inputs, train_handle = self.iterator.create_dataset_iterator(mode='train')
-        # _, test_handle = self.iterator.create_dataset_iterator(mode='test')
+    def dataset_iterator(self, mode='train'):
 
         # model_train_inputs, train_handle = self.iterator.create_iterator(mode='train')
         # _, test_handle = self.iterator.create_iterator(mode='test')
@@ -50,8 +49,8 @@ class ObjectTrainer(BaseTrain):
 
         train_writer, test_writer, merged_summaries = self.init_tensorboard()
 
-        self.init = tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())
-        self.session.run(self.init)
+        init = tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())
+        self.session.run(init)
 
         self.model.init_saver(max_to_keep=2)
 
@@ -66,17 +65,15 @@ class ObjectTrainer(BaseTrain):
             # run epoch training
             train_output = self.train_epoch(cur_epoch, train_writer, merged_summaries)
             # run model on test set
-            test_output = self.test_step(test_writer, merged_summaries)
-
-            self.log_progress(train_output, num_iteration=cur_epoch * self.config.num_iterations(), mode='train')
-            self.log_progress(test_output, num_iteration=cur_epoch * self.config.num_iterations(), mode='test')
+            test_output = self.test_step(test_writer, cur_epoch, merged_summaries)
 
             self.update_progress_bar(t_epoches, train_output, test_output)
 
             # increase epoche counter
             self.session.run(self.model.increment_cur_epoch_tensor)
 
-            self.model.save(self.session, write_meta_graph=False)
+            if cur_epoch % 10 == 0:
+                self.model.save(self.session, write_meta_graph=True)
 
         # finale save model - creates checkpoint
         self.model.save(self.session, write_meta_graph=True)
@@ -97,7 +94,10 @@ class ObjectTrainer(BaseTrain):
         mean_loss = 0
         for i in range(num_iterations):
 
-            loss = self.train_step(train_writer, merged_summaries, cur_epoche*num_iterations + i)
+            if i % 10 == 0:
+                loss = self.train_step(train_writer, cur_epoche*num_iterations + i, merged_summaries)
+            else:
+                loss = self.train_step(train_writer, cur_epoche * num_iterations + i)
 
             mean_loss += loss
 
@@ -106,26 +106,33 @@ class ObjectTrainer(BaseTrain):
         return mean_loss, 0
 
 
-    def train_step(self, train_writer, merged_summaries, iter):
+    def train_step(self, train_writer, num_iter, merged_summaries=None):
 
         # run training
-        summary, _, loss = self.session.run([merged_summaries, self.model.opt, self.model.loss],
-            feed_dict={self.iterator.handle_placeholder: self.train_handle},
-            options=self.options, run_metadata=self.run_metadata
-        )
+        if merged_summaries:
+            summary, _, loss = self.session.run([merged_summaries, self.model.opt, self.model.loss],
+                                                feed_dict={self.iterator.handle_placeholder: self.train_handle},
+                                                options=self.options, run_metadata=self.run_metadata)
 
-        # write summaries to tensorboard
-        train_writer.add_summary(summary, iter)
+            # write summaries to tensorboard
+            train_writer.add_summary(summary, num_iter)
+        else:
+            _, loss = self.session.run([self.model.opt, self.model.loss],
+                                       feed_dict={self.iterator.handle_placeholder: self.train_handle},
+                                       options=self.options, run_metadata=self.run_metadata)
 
         # increase global step
         self.session.run(self.model.increment_global_step_tensor)
 
         return loss
 
-    def test_step(self, test_writer, merged_summaries):
+    def test_step(self, test_writer, cur_epoche, merged_summaries):
 
-        loss, loss_cord, loss_size, loss_obj, loss_noobj, loss_class, learning_rate, boxes, scores, classes, image, labels, mask, debug = self.session.run(
-            [self.model.get_loss(),
+        num_iterations = self.config.num_iterations() * cur_epoche
+
+        summary, loss, loss_cord, loss_size, loss_obj, loss_noobj, loss_class, learning_rate, boxes, scores, classes, image, labels, mask, debug = self.session.run(
+            [merged_summaries,
+             self.model.get_loss(),
              self.model.loss_cord,
              self.model.loss_size,
              self.model.loss_obj,
@@ -142,6 +149,9 @@ class ObjectTrainer(BaseTrain):
             feed_dict={self.iterator.handle_placeholder: self.test_handle},
             options=self.options, run_metadata=self.run_metadata
         )
+
+        test_writer.add_summary(summary, num_iterations)
+
         np.set_printoptions(formatter={'float_kind': '{:f}'.format})
         print(debug)
 
@@ -170,14 +180,6 @@ class ObjectTrainer(BaseTrain):
         # -----------TESTING-----------
 
         return loss, loss_cord, loss_size, loss_obj, loss_noobj, loss_class, learning_rate
-
-    def log_progress(self, input, num_iteration, mode):
-
-        summaries_dict = {
-            'loss': input[0]
-        }
-
-        self.logger.log_scalars(num_iteration, summarizer=mode, summaries_dict=summaries_dict)
 
     def update_progress_bar(self, t_bar, train_output, test_output):
 

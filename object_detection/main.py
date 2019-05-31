@@ -1,3 +1,6 @@
+import sys
+sys.path.append('/home/zvadaada/traffic-object-detection/')
+
 import tensorflow as tf
 import os
 from tensorflow.python import debug as tf_debug
@@ -10,16 +13,14 @@ from tensorflow.python.client import timeline
 
 def main_train(config: ConfigReader):
 
-    #os.environ['CUDA_VISIBLE_DEVICES'] = '0'
-
     dataset = UdacityObjectDataset(config)
 
     # TODO: calculate anchors using k-means
     model = YOLO(config)
 
     tf_config = tf.ConfigProto()
-    #tf_config.gpu_options.allow_growth = True
-    tf_config.gpu_options.per_process_gpu_memory_fraction = 0.4
+    tf_config.gpu_options.allow_growth = True
+    #tf_config.gpu_options.per_process_gpu_memory_fraction = 0.4
 
     with tf.Session(config=tf_config) as session:
 

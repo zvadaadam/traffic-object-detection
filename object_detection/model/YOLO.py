@@ -66,7 +66,6 @@ class YOLO(CNNModel):
 
         self.opt = self.optimizer(self.loss, self.config.learning_rate())
 
-
         with tf.variable_scope('eval'):
 
             boxes, scores, classes = self.eval_boxes(yolo_output)
@@ -78,6 +77,7 @@ class YOLO(CNNModel):
             self.img = x
 
             self.labels = y
+
 
     def yolo(self, input):
         print('Input: {}'.format(input.get_shape()))
@@ -279,15 +279,7 @@ class YOLO(CNNModel):
 
         tf.summary.scalar('learning_rate', self.learning_rate)
 
-        # opt = tf.train.AdamOptimizer(self.learning_rate).minimize(loss)
-
-        opt = tf.train.AdamOptimizer(self.learning_rate)
-        grads = opt.compute_gradients(loss)
-
-        for grad, var in grads:
-            tf.summary.histogram(var.op.name + "/gradient", grad)
-
-        return opt.apply_gradients(grads)
+        return tf.train.AdamOptimizer(self.learning_rate).minimize(loss)
 
     def yolo_loss(self, predict, label, lambda_cord=5, lambda_noobj=0.5):
 
@@ -325,12 +317,6 @@ class YOLO(CNNModel):
 
     def cord_loss(self, label, pred, lambda_cord=5):
         # INPUT: (?, grid_size, grid_size, num_anchors, 5 + num_classes)
-
-        #indicator_coord = tf.math.ceil(indicator_coord)
-
-        # ---TESTING PURPOSE----
-        # indicator_coord = tf.dtypes.cast(indicator_coord > 0.4, tf.float32)
-        # print(indicator_coord.eval())
 
         with tf.name_scope('cord'):
             # contains object(x>0) or does not contain object(x==0)
