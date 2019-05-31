@@ -4,21 +4,22 @@ dataset:
   name: &dataset_name udacity
   root_dataset: &root_dataset object-dataset/
   dataset_path: !join [*root_dataset, *dataset_name] #drive/My\ Drive/ObjectDetection/object-dataset
+  tfrecords_train_path: object_detection/udacity_train.tfrecords # TODO: move to its proper folder
+  tfrecords_test_path: object_detection/udacity_test.tfrecords # TODO: move to its proper folder
   test_size: 0.3
   num_classes: 5
 hyperparams:
-  batch_size: &batch_size 512
-  num_layers: &num_layers 2
+  batch_size: &batch_size 64
   num_classes: 5
-  num_epoches: 50
-  num_iterations: 20
+  num_epoches: 2
+  num_iterations: 10
   learning_rate: 0.00001
 model:
   model_type: &model_type YOLOv2.5
   trained_path:  trained_models/
-  model_description: !join [*model_type, _, l, *num_layers, _, b, *batch_size]
-  tensorboard_path: !join [tensorboard/, *model_type, _, l, *num_layers, _, b, *batch_size]
-  restore_trained_model: #!join [trained_models/, *model_type, _, l, *num_layers, _, b, *batch_size, -4010]
+  model_description: !join [*model_type, _, b, *batch_size]
+  tensorboard_path: !join [tensorboard/, *model_type, _, b, *batch_size]
+  restore_trained_model: #!join [trained_models/, *model_type, _, b, *batch_size, -4010]
 yolo:
   image_height: 448
   image_width: 448

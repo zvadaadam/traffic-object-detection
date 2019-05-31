@@ -11,19 +11,25 @@ from object_detection.utils import yolo_utils
 
 class ObjectTrainer(BaseTrain):
 
-    def __init__(self, session: tf.Session(), model, dataset, config: ConfigReader):
+    def __init__(self, session: tf.Session(), model, dataset, config: ConfigReader, options, run_metadata):
         super(ObjectTrainer, self).__init__(session, model, dataset, config)
 
+        self.options = options
+        self.run_metadata = run_metadata
+
         self.logger = TensorLogger(log_path=self.config.tensorboard_path(), session=self.session)
-        self.iterator = ImageIterator(self.session, self.model, self.dataset, self.config)
+        self.iterator = ImageIterator(self.session, self.dataset, self.config, self.model)
 
     def dataset_iterator(self, mode='train'):
 
         # model_train_inputs, train_handle = self.iterator.create_dataset_iterator(mode='train')
         # _, test_handle = self.iterator.create_dataset_iterator(mode='test')
 
-        model_train_inputs, train_handle = self.iterator.create_iterator(mode='train')
-        _, test_handle = self.iterator.create_iterator(mode='test')
+        # model_train_inputs, train_handle = self.iterator.create_iterator(mode='train')
+        # _, test_handle = self.iterator.create_iterator(mode='test')
+
+        model_train_inputs, train_handle = self.iterator.create_iterator_from_tfrecords(mode='train')
+        _, test_handle = self.iterator.create_iterator_from_tfrecords(mode='test')
 
         return model_train_inputs, train_handle, test_handle
 
@@ -104,7 +110,8 @@ class ObjectTrainer(BaseTrain):
 
         # run training
         summary, _, loss = self.session.run([merged_summaries, self.model.opt, self.model.loss],
-            feed_dict={self.iterator.handle_placeholder: self.train_handle}
+            feed_dict={self.iterator.handle_placeholder: self.train_handle},
+            options=self.options, run_metadata=self.run_metadata
         )
 
         # write summaries to tensorboard
@@ -132,7 +139,8 @@ class ObjectTrainer(BaseTrain):
              self.model.get_labels(),
              self.model.mask,
              self.model.debug],
-            feed_dict={self.iterator.handle_placeholder: self.test_handle}
+            feed_dict={self.iterator.handle_placeholder: self.test_handle},
+            options=self.options, run_metadata=self.run_metadata
         )
         np.set_printoptions(formatter={'float_kind': '{:f}'.format})
         print(debug)

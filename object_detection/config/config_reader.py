@@ -41,6 +41,22 @@ class ConfigReader(object):
 
         return self._absolute_path(path)
 
+    def tfrecords_train_path(self):
+        path = self.dataset['tfrecords_train_path']
+
+        if path == None:
+            return None
+
+        return self._absolute_path(path)
+
+    def tfrecords_test_path(self):
+        path = self.dataset['tfrecords_test_path']
+
+        if path == None:
+            return None
+
+        return self._absolute_path(path)
+
     def test_size(self):
         return self.dataset['test_size']
 

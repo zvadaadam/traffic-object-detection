@@ -1,5 +1,7 @@
 import pandas as pd
 import numpy as np
+import tensorflow as tf
+import cv2
 from tqdm import tqdm
 from sklearn.model_selection import train_test_split
 from object_detection.dataset.dataset_base import DatasetBase
@@ -20,8 +22,9 @@ class UdacityObjectDataset(DatasetBase):
 
         self.load_dataset()
 
-        print(self.df.isnull().values.any())
-        #self.load_dataset_from_pickle('udacity_dataset_500.pkl')
+        # self.load_dataset_from_pickle('udacity_dataset_500.pkl')
+        self.generate_tfrecords(self.train_df, type='train')
+        self.generate_tfrecords(self.test_df, type='test')
 
     def load_dataset_from_pickle(self, path):
         df = self.load_pickle(path)
@@ -62,7 +65,7 @@ class UdacityObjectDataset(DatasetBase):
         occlusions = []
         labels = []
 
-        for data_row in data:
+        for data_row in data[0:2000]:
             frames.append(data_row[0])
             x_min.append(data_row[1])
             y_min.append(data_row[2])
@@ -221,6 +224,27 @@ class UdacityObjectDataset(DatasetBase):
         self.save_to_pickle(df)
 
         return df
+
+    def generate_tfrecords(self, df, type='train'):
+
+        images = np.array(df['image'].values.tolist(), dtype=np.float32)
+        labels = np.array(df['label'].values.tolist(), dtype=np.float32)
+
+        with tf.python_io.TFRecordWriter(f'udacity_{type}.tfrecords') as writer:
+
+            for image, labels in tqdm(zip(images, labels)):
+                encoded_image = cv2.imencode('.jpg', image)[1].tostring()
+
+                # flat_labels = labels.flatten()
+
+                example = tf.train.Example(features=tf.train.Features(
+                    feature={
+                        'image': tf.train.Feature(bytes_list=tf.train.BytesList(value=[tf.compat.as_bytes(encoded_image)])),
+                        'labels': tf.train.Feature(bytes_list=tf.train.BytesList(value=[labels.tostring()]))
+                        # 'labels': tf.train.Feature(float_list=tf.train.FloatList(value=flat_labels))
+                    }))
+
+                writer.write(example.SerializeToString())
 
     def save_to_pickle(self, df):
         df.to_pickle('udacity_dataset_500.pkl')
