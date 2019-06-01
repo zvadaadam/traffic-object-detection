@@ -15,13 +15,12 @@ class CNNModel(ModelBase):
         self.x = None
         self.y = None
 
-
     def normalization(self, x, radius, alpha, beta, name, bias=1.0):
         return tf.nn.local_response_normalization(x, depth_radius=radius, alpha=alpha, beta=beta,
                                                   bias=bias, name=name)
 
     def conv(self, inputs, filter_height, filter_width, num_filters,
-             stride_x, stride_y, padding, scope_name='conv'):
+             stride_x, stride_y, padding, training, scope_name='conv'):
 
         with tf.variable_scope(scope_name, reuse=tf.AUTO_REUSE) as scope:
 
@@ -32,7 +31,11 @@ class CNNModel(ModelBase):
 
             output = conv.apply(inputs)
 
-            output = tf.layers.batch_normalization(output, training=self.is_training)
+            output = tf.layers.batch_normalization(output, beta_initializer=tf.zeros_initializer(),
+                                                   gamma_initializer=tf.ones_initializer(),
+                                                   moving_mean_initializer=tf.zeros_initializer(),
+                                                   moving_variance_initializer=tf.ones_initializer(),
+                                                   training=training)
 
             output = tf.nn.leaky_relu(output, name=scope.name, alpha=0.1)
 

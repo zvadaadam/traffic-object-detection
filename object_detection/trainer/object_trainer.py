@@ -83,7 +83,7 @@ class ObjectTrainer(BaseTrain):
         merged = tf.summary.merge_all()
 
         train_writer = tf.summary.FileWriter(self.config.tensorboard_path() + '/train', self.session.graph)
-        test_writer = tf.summary.FileWriter(self.config.tensorboard_path() + '/test')
+        test_writer = tf.summary.FileWriter(self.config.tensorboard_path() + '/test', self.session.graph)
 
         return train_writer, test_writer, merged
 
@@ -95,7 +95,7 @@ class ObjectTrainer(BaseTrain):
         for i in range(num_iterations):
 
             if i % 10 == 0:
-                loss = self.train_step(train_writer, cur_epoche*num_iterations + i, merged_summaries)
+                loss = self.train_step(train_writer, cur_epoche * num_iterations + i, merged_summaries)
             else:
                 loss = self.train_step(train_writer, cur_epoche * num_iterations + i)
 

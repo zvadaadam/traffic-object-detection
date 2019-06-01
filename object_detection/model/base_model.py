@@ -20,8 +20,7 @@ class ModelBase(object):
 
         self.init_placeholders()
 
-        self.is_training = tf.placeholder(tf.bool, name='is_training')
-
+        self.is_training = None
 
     def save(self, session, global_step=None, write_meta_graph=True):
         """
