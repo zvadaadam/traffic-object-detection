@@ -111,14 +111,16 @@ class ObjectTrainer(BaseTrain):
         # run training
         if merged_summaries:
             summary, _, loss = self.session.run([merged_summaries, self.model.opt, self.model.loss],
-                                                feed_dict={self.iterator.handle_placeholder: self.train_handle},
+                                                feed_dict={self.iterator.handle_placeholder: self.train_handle,
+                                                           self.model.is_training: True},
                                                 options=self.options, run_metadata=self.run_metadata)
 
             # write summaries to tensorboard
             train_writer.add_summary(summary, num_iter)
         else:
             _, loss = self.session.run([self.model.opt, self.model.loss],
-                                       feed_dict={self.iterator.handle_placeholder: self.train_handle},
+                                       feed_dict={self.iterator.handle_placeholder: self.train_handle,
+                                                  self.model.is_training: True},
                                        options=self.options, run_metadata=self.run_metadata)
 
         # increase global step
@@ -146,7 +148,8 @@ class ObjectTrainer(BaseTrain):
              self.model.get_labels(),
              self.model.mask,
              self.model.debug],
-            feed_dict={self.iterator.handle_placeholder: self.test_handle},
+            feed_dict={self.iterator.handle_placeholder: self.test_handle,
+                       self.model.is_training: False},
             options=self.options, run_metadata=self.run_metadata
         )
 

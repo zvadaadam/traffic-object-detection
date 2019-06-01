@@ -31,6 +31,8 @@ class YOLO(CNNModel):
         self.x = tf.placeholder(tf.float32, [None, image_height, image_width, 3])
         self.y = tf.placeholder(tf.float32, [None, grid_size, grid_size, num_anchors, 5 + num_classes])
 
+        self.is_training = tf.placeholder(tf.bool, name='is_training')
+
     def get_tensor_boxes(self):
         return self.boxes
 
@@ -66,17 +68,18 @@ class YOLO(CNNModel):
 
         self.opt = self.optimizer(self.loss, self.config.learning_rate())
 
-        with tf.variable_scope('eval'):
+        if not self.is_training:
+            with tf.variable_scope('eval'):
 
-            boxes, scores, classes = self.eval_boxes(yolo_output)
+                boxes, scores, classes = self.eval_boxes(yolo_output)
 
-            self.boxes = boxes
-            self.scores = scores
-            self.classes = classes
+                self.boxes = boxes
+                self.scores = scores
+                self.classes = classes
 
-            self.img = x
+                self.img = x
 
-            self.labels = y
+                self.labels = y
 
 
     def yolo(self, input):
