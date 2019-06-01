@@ -31,8 +31,6 @@ class YOLO(CNNModel):
         self.x = tf.placeholder(tf.float32, [None, image_height, image_width, 3])
         self.y = tf.placeholder(tf.float32, [None, grid_size, grid_size, num_anchors, 5 + num_classes])
 
-        self.is_training = tf.placeholder(tf.bool, name='is_training')
-
     def get_tensor_boxes(self):
         return self.boxes
 
@@ -56,6 +54,8 @@ class YOLO(CNNModel):
 
     def build_model(self, input):
 
+        self.input = input
+
         x, y = input['x'], input['y']
 
         print('Building computation graph...')
@@ -68,18 +68,7 @@ class YOLO(CNNModel):
 
         self.opt = self.optimizer(self.loss, self.config.learning_rate())
 
-        if not self.is_training:
-            with tf.variable_scope('eval'):
-
-                boxes, scores, classes = self.eval_boxes(yolo_output)
-
-                self.boxes = boxes
-                self.scores = scores
-                self.classes = classes
-
-                self.img = x
-
-                self.labels = y
+        self.eval = self.yolo_eval(yolo_output, x, y)
 
 
     def yolo(self, input):
@@ -317,6 +306,13 @@ class YOLO(CNNModel):
             tf.summary.scalar('loss', loss)
 
         return loss
+
+    def yolo_eval(self, transformed_logits):
+
+        with tf.variable_scope('eval'):
+            boxes, scores, classes = self.eval_boxes(transformed_logits)
+
+        return boxes, scores, classes
 
     def cord_loss(self, label, pred, lambda_cord=5):
         # INPUT: (?, grid_size, grid_size, num_anchors, 5 + num_classes)

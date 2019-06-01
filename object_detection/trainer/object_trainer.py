@@ -109,7 +109,7 @@ class ObjectTrainer(BaseTrain):
     def train_step(self, train_writer, num_iter, merged_summaries=None):
 
         # run training
-        if merged_summaries:
+        if merged_summaries != None:
             summary, _, loss = self.session.run([merged_summaries, self.model.opt, self.model.loss],
                                                 feed_dict={self.iterator.handle_placeholder: self.train_handle,
                                                            self.model.is_training: True},
@@ -132,22 +132,17 @@ class ObjectTrainer(BaseTrain):
 
         num_iterations = self.config.num_iterations() * cur_epoche
 
-        summary, loss, loss_cord, loss_size, loss_obj, loss_noobj, loss_class, learning_rate, boxes, scores, classes, image, labels, mask, debug = self.session.run(
+        summary, (boxes, scores, classes), input, loss, loss_cord, loss_size, loss_obj, loss_noobj, loss_class, learning_rate = self.session.run(
             [merged_summaries,
+             self.model.eval,
+             self.model.input,
              self.model.get_loss(),
              self.model.loss_cord,
              self.model.loss_size,
              self.model.loss_obj,
              self.model.loss_noobj,
              self.model.loss_class,
-             self.model.learning_rate,
-             self.model.get_tensor_boxes(),
-             self.model.get_tensor_scores(),
-             self.model.get_tensor_classes(),
-             self.model.get_image(),
-             self.model.get_labels(),
-             self.model.mask,
-             self.model.debug],
+             self.model.learning_rate],
             feed_dict={self.iterator.handle_placeholder: self.test_handle,
                        self.model.is_training: False},
             options=self.options, run_metadata=self.run_metadata
@@ -156,7 +151,7 @@ class ObjectTrainer(BaseTrain):
         test_writer.add_summary(summary, num_iterations)
 
         np.set_printoptions(formatter={'float_kind': '{:f}'.format})
-        print(debug)
+        #print(debug)
 
         # -----------TESTING-----------
         if boxes.shape[0] == 0:
@@ -164,7 +159,7 @@ class ObjectTrainer(BaseTrain):
             return loss, loss_cord, loss_size, loss_obj, loss_noobj, loss_class, learning_rate
 
         label_boxes = []
-        for label in np.reshape(labels[0], newshape=[49, 3, 10]):
+        for label in np.reshape(input['y'][0], newshape=[49, 3, 10]):
             label_boxes.append(label)
 
         print(f'Predicted: {boxes[0][0]}, {boxes[0][1]}, {boxes[0][2]}, {boxes[0][3]}')

@@ -32,7 +32,7 @@ class CNNModel(ModelBase):
 
             output = conv.apply(inputs)
 
-            output = tf.layers.batch_normalization(output)
+            output = tf.layers.batch_normalization(output, training=self.is_training)
 
             output = tf.nn.leaky_relu(output, name=scope.name, alpha=0.1)
 
