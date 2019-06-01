@@ -26,28 +26,26 @@ class ImageIterator(object):
             else:
                 raise Exception(f'Mode {mode} does not exist.')
 
-        with tf.device('/cpu:0'):
+        dataset = tf.data.TFRecordDataset([tfrecords_path])
+        dataset = dataset.map(self.preprocess_tfrecords, num_parallel_calls=8)
+        dataset = dataset.cache()
+        dataset = dataset.apply(tf.data.experimental.shuffle_and_repeat(buffer_size=188))  # TODO: num images
+        # dataset = dataset.shuffle(self.config.batch_size()*2)
+        dataset = dataset.batch(self.config.batch_size(), drop_remainder=True)
+        #dataset = dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+        dataset = dataset.prefetch(buffer_size=2)
 
-            dataset = tf.data.TFRecordDataset([tfrecords_path])
-            dataset = dataset.map(self.preprocess_tfrecords, num_parallel_calls=8)
-            dataset = dataset.cache()
-            dataset = dataset.apply(tf.data.experimental.shuffle_and_repeat(buffer_size=188))  # TODO: num images
-            # dataset = dataset.shuffle(self.config.batch_size()*2)
-            dataset = dataset.batch(self.config.batch_size(), drop_remainder=True)
-            #dataset = dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
-            dataset = dataset.prefetch(buffer_size=2)
+        dataset_iterator = dataset.make_initializable_iterator()
 
-            dataset_iterator = dataset.make_initializable_iterator()
+        dataset_handle = self.session.run(dataset_iterator.string_handle())
 
-            dataset_handle = self.session.run(dataset_iterator.string_handle())
+        x, y = dataset_iterator.get_next()
+        inputs = {
+            'x': x,
+            'y': y,
+        }
 
-            x, y = dataset_iterator.get_next()
-            inputs = {
-                'x': x,
-                'y': y,
-            }
-
-            self.session.run(dataset_iterator.initializer)
+        self.session.run(dataset_iterator.initializer)
 
         # show data pipeline performance
         self.time_pipeline(dataset_iterator)
@@ -79,50 +77,49 @@ class ImageIterator(object):
 
         return image, labels
 
-
     def create_iterator(self, mode='train'):
 
-        with tf.device('/cpu:0'):
-            dataset = tf.data.Dataset.from_tensor_slices((self.model.x, self.model.y))
+        dataset = tf.data.Dataset.from_tensor_slices((self.model.x, self.model.y))
 
-            num_images = len(self.dataset.train_dataset())
-            dataset = dataset.cache()
-            dataset = dataset.apply(tf.data.experimental.shuffle_and_repeat(buffer_size=num_images))
-            dataset = dataset.batch(self.config.batch_size(), drop_remainder=True)
-            #dataset = dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
-            dataset = dataset.prefetch(buffer_size=1)
+        num_images = len(self.dataset.train_dataset())
+        dataset = dataset.map(self.normalization)
+        dataset = dataset.cache()
+        dataset = dataset.apply(tf.data.experimental.shuffle_and_repeat(buffer_size=num_images))
+        dataset = dataset.batch(self.config.batch_size(), drop_remainder=True)
+        #dataset = dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+        dataset = dataset.prefetch(buffer_size=1)
 
-            dataset_iterator = dataset.make_initializable_iterator()
+        dataset_iterator = dataset.make_initializable_iterator()
 
-            dataset_handle = self.session.run(dataset_iterator.string_handle())
+        dataset_handle = self.session.run(dataset_iterator.string_handle())
 
-            x, y = dataset_iterator.get_next()
-            inputs = {
-                'x': x,
-                'y': y,
-            }
+        x, y = dataset_iterator.get_next()
+        inputs = {
+            'x': x,
+            'y': y,
+        }
 
-            if mode == 'train':
-                df = self.dataset.train_dataset()
-            else:
-                df = self.dataset.test_dataset()
+        if mode == 'train':
+            df = self.dataset.train_dataset()
+        else:
+            df = self.dataset.test_dataset()
 
-            images = np.array(df['image'].values.tolist(), dtype=np.float32)
-            labels = np.array(df['label'].values.tolist())
+        images = np.array(df['image'].values.tolist(), dtype=np.float32)
+        labels = np.array(df['label'].values.tolist())
 
-            for i in range(0, len(images)):
-                img = images[i]
-                img = img.astype('float32')
+        for i in range(0, len(images)):
+            img = images[i]
+            img = img.astype('float32')
 
-                if img.max() > 1.0:
-                    img /= 255.0
+            if img.max() > 1.0:
+                img /= 255.0
 
-            feed = {
-                self.model.x: images,
-                self.model.y: labels
-            }
+        feed = {
+            self.model.x: images,
+            self.model.y: labels
+        }
 
-            self.session.run(dataset_iterator.initializer, feed_dict=feed)
+        self.session.run(dataset_iterator.initializer, feed_dict=feed)
 
         # show data pipeline performance
         self.time_pipeline(dataset_iterator)
@@ -137,7 +134,11 @@ class ImageIterator(object):
 
         start = time.time()
         for i in range(0, self.config.num_iterations()):
-            self.session.run(dataset_iterator.get_next())
+            input = self.session.run(dataset_iterator.get_next())
+
+            np.set_printoptions(formatter={'float_kind': '{:f}'.format})
+            print(f'Image: {input[0]}')
+            print(f'Lables: {input[1]}')
 
         end = time.time()
 
@@ -146,6 +147,12 @@ class ImageIterator(object):
         print(" {} batches: {} s".format(self.config.num_iterations(), duration))
         print(" {:0.5f} Images/s".format(self.config.batch_size() * self.config.num_iterations() / duration))
         print(" Total time: {}s".format(end - overall_start))
+
+    def normalization(self, image, label):
+
+        image = tf.cond(tf.math.reduce_max(image) > 1.0, lambda: image/255, lambda: image)
+
+        return image, label
 
 if __name__ == '__main__':
 

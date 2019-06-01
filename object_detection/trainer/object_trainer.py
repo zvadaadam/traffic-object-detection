@@ -72,7 +72,7 @@ class ObjectTrainer(BaseTrain):
             # increase epoche counter
             self.session.run(self.model.increment_cur_epoch_tensor)
 
-            if cur_epoch % 10 == 0:
+            if cur_epoch % 20 == 0:
                 self.model.save(self.session, write_meta_graph=True)
 
         # finale save model - creates checkpoint
@@ -94,7 +94,7 @@ class ObjectTrainer(BaseTrain):
         mean_loss = 0
         for i in range(num_iterations):
 
-            if i % 10 == 0:
+            if i % 50 == 0:
                 loss = self.train_step(train_writer, cur_epoche * num_iterations + i, merged_summaries)
             else:
                 loss = self.train_step(train_writer, cur_epoche * num_iterations + i)
@@ -103,14 +103,14 @@ class ObjectTrainer(BaseTrain):
 
         mean_loss /= num_iterations
 
-        return mean_loss, 0
+        return mean_loss
 
 
     def train_step(self, train_writer, num_iter, merged_summaries=None):
 
         # run training
         if merged_summaries != None:
-            summary, _, loss = self.session.run([merged_summaries, self.model.opt, self.model.loss],
+            loss, _, summary = self.session.run([self.model.loss, self.model.opt, merged_summaries],
                                                 feed_dict={self.iterator.handle_placeholder: self.train_handle,
                                                            self.model.is_training: True},
                                                 options=self.options, run_metadata=self.run_metadata)
@@ -118,10 +118,12 @@ class ObjectTrainer(BaseTrain):
             # write summaries to tensorboard
             train_writer.add_summary(summary, num_iter)
         else:
-            _, loss = self.session.run([self.model.opt, self.model.loss],
+            loss, _ = self.session.run([self.model.loss, self.model.opt],
                                        feed_dict={self.iterator.handle_placeholder: self.train_handle,
                                                   self.model.is_training: True},
                                        options=self.options, run_metadata=self.run_metadata)
+
+        print(loss)
 
         # increase global step
         self.session.run(self.model.increment_global_step_tensor)
@@ -132,11 +134,10 @@ class ObjectTrainer(BaseTrain):
 
         num_iterations = self.config.num_iterations() * cur_epoche
 
-        summary, (boxes, scores, classes), input, loss, loss_cord, loss_size, loss_obj, loss_noobj, loss_class, learning_rate = self.session.run(
-            [merged_summaries,
+        loss, output, summary, loss_cord, loss_size, loss_obj, loss_noobj, loss_class, learning_rate = self.session.run(
+            [self.model.get_loss(),
              self.model.eval,
-             self.model.input,
-             self.model.get_loss(),
+             merged_summaries,
              self.model.loss_cord,
              self.model.loss_size,
              self.model.loss_obj,
@@ -145,25 +146,26 @@ class ObjectTrainer(BaseTrain):
              self.model.learning_rate],
             feed_dict={self.iterator.handle_placeholder: self.test_handle,
                        self.model.is_training: False},
-            options=self.options, run_metadata=self.run_metadata
-        )
+            options=self.options, run_metadata=self.run_metadata)
 
         test_writer.add_summary(summary, num_iterations)
 
         np.set_printoptions(formatter={'float_kind': '{:f}'.format})
-        #print(debug)
+
+        (boxes, scores, classes) = output
 
         # -----------TESTING-----------
         if boxes.shape[0] == 0:
             print('NO BOXES RETURNED!')
             return loss, loss_cord, loss_size, loss_obj, loss_noobj, loss_class, learning_rate
 
-        label_boxes = []
-        for label in np.reshape(input['y'][0], newshape=[49, 3, 10]):
-            label_boxes.append(label)
-
         print(f'Predicted: {boxes[0][0]}, {boxes[0][1]}, {boxes[0][2]}, {boxes[0][3]}')
-        print(f'Label: {label_boxes[0][0][0]}, {label_boxes[0][0][1]}, {label_boxes[0][0][2]}, {label_boxes[0][0][3]}')
+
+        # label_boxes = []
+        # for label in np.reshape(input['y'][0], newshape=[49, 3, 10]):
+        #     label_boxes.append(label)
+
+        # print(f'Label: {label_boxes[0][0][0]}, {label_boxes[0][0][1]}, {label_boxes[0][0][2]}, {label_boxes[0][0][3]}')
 
         #image_utils.plot_img(image_utils.add_bb_to_img(image[0], boxes[0][0], boxes[0][1], boxes[0][2], boxes[0][3]))
 
@@ -182,8 +184,7 @@ class ObjectTrainer(BaseTrain):
     def update_progress_bar(self, t_bar, train_output, test_output):
 
         t_bar.set_postfix(
-            train_loss='{:05.3f}'.format(train_output[0]),
-            #train_acc='{:05.3f}'.format(train_output[1]),
+            train_loss='{:05.3f}'.format(train_output),
             test_loss='{:05.3f}'.format(test_output[0]),
             test_loss_cord='{:05.3f}'.format(test_output[1]),
             test_loss_size='{:05.3f}'.format(test_output[2]),
@@ -191,5 +192,4 @@ class ObjectTrainer(BaseTrain):
             test_loss_noobj='{:05.3f}'.format(test_output[4]),
             test_loss_class='{:05.3f}'.format(test_output[5]),
             test_learning_rate='{:05.5f}'.format(test_output[6]),
-            #test_acc='{:05.3f}'.format(test_output[1]),
         )

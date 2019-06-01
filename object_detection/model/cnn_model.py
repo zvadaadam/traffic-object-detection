@@ -31,11 +31,13 @@ class CNNModel(ModelBase):
 
             output = conv.apply(inputs)
 
+            # output = tf.contrib.layers.batch_norm(output, center=True, scale=True, is_training=training, scope='batch_norm')
+
             output = tf.layers.batch_normalization(output, beta_initializer=tf.zeros_initializer(),
                                                    gamma_initializer=tf.ones_initializer(),
                                                    moving_mean_initializer=tf.zeros_initializer(),
                                                    moving_variance_initializer=tf.ones_initializer(),
-                                                   training=training)
+                                                   training=True)
 
             output = tf.nn.leaky_relu(output, name=scope.name, alpha=0.1)
 

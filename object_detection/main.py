@@ -23,7 +23,7 @@ def main_train(config: ConfigReader):
 
     with tf.Session(config=tf_config) as session:
 
-        #session = tf_debug.TensorBoardDebugWrapperSession(session, 'PRGA-004810.local:6064', send_traceback_and_source_code=False)
+        #session = tf_debug.TensorBoardDebugWrapperSession(session, 'prga-004810.rad.int.avast.com:6064', send_traceback_and_source_code=True)
 
         # add additional options to trace the session execution
         options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
@@ -42,8 +42,8 @@ def main_train(config: ConfigReader):
 
 if __name__ == '__main__':
 
-    config_path = '/home/zvadaada/traffic-object-detection/config/test.yml'
-    # config_path = '/Users/adam.zvada/Documents/Dev/object-detection/config/test.yml'
+    # config_path = '/home/zvadaada/traffic-object-detection/config/test.yml'
+    config_path = '/Users/adam.zvada/Documents/Dev/object-detection/config/test.yml'
     # config_path = '/home/adam.zvada/dev/object-detection/config/test.yml'
 
     main_train(ConfigReader(config_path))
