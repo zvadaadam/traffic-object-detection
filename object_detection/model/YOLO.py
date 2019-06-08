@@ -1,13 +1,16 @@
 import tensorflow as tf
 import numpy as np
+from object_detection.model.base_model import ModelBase
 from object_detection.model.cnn_model import CNNModel
 from object_detection.config.config_reader import ConfigReader
 
 
-class YOLO(CNNModel):
+class YOLO(ModelBase):
 
-    def __init__(self, config: ConfigReader, anchors=None):
+    def __init__(self, network: CNNModel, config: ConfigReader, anchors=None):
         super(YOLO, self).__init__(config)
+
+        self.network = network
 
         self.boxes = None
         self.scores = None
@@ -62,7 +65,10 @@ class YOLO(CNNModel):
 
         print('Building computation graph...')
 
-        yolo_output = self.yolo(x)
+        yolo_output = self.network.build_network(x, self.is_training)
+
+        if len(yolo_output.get_shape()) > 5:
+            raise Exception('Prediction Across Scale not supported.')
 
         yolo_output = self.transform_output_logits(yolo_output)
 
@@ -71,170 +77,6 @@ class YOLO(CNNModel):
         self.opt = self.optimizer(self.loss, self.config.learning_rate())
 
         self.eval = self.yolo_eval(yolo_output)
-
-
-    def yolo(self, input):
-        print('Input: {}'.format(input.get_shape()))
-
-        # LAYER 1
-        conv = self.conv(input, filter_height=7, filter_width=7, num_filters=64,
-                          stride_x=2, stride_y=2, padding='SAME', training=self.is_training, scope_name='conv1')
-        print('Conv1: {}'.format(conv.get_shape()))
-
-        pool = self.max_pool(conv, filter_height=2, filter_width=2, stride_x=2, stride_y=2,
-                              padding='VALID', scope_name='pool1')
-        print('Pool1: {}'.format(pool.get_shape()))
-
-        # LAYER 2
-        conv = self.conv(pool, filter_height=3, filter_width=3, num_filters=192,
-                          stride_x=1, stride_y=1, padding='SAME', training=self.is_training, scope_name='conv2')
-        print('Conv2: {}'.format(conv.get_shape()))
-
-        pool = self.max_pool(conv, filter_height=2, filter_width=2, stride_x=2, stride_y=2,
-                              padding='VALID', scope_name='pool1')
-        print('Pool1: {}'.format(pool.get_shape()))
-
-        # LAYER 3
-        conv = self.conv(pool, filter_height=1, filter_width=1, num_filters=128,
-                         stride_x=1, stride_y=1, padding='SAME', training=self.is_training, scope_name='conv3')
-        print('Conv3: {}'.format(conv.get_shape()))
-
-        # LAYER 4
-        conv = self.conv(conv, filter_height=3, filter_width=3, num_filters=256,
-                         stride_x=1, stride_y=1, padding='SAME', training=self.is_training, scope_name='conv4')
-        print('Conv4: {}'.format(conv.get_shape()))
-
-        # LAYER 5
-        conv = self.conv(conv, filter_height=1, filter_width=1, num_filters=256,
-                         stride_x=1, stride_y=1, padding='SAME', training=self.is_training, scope_name='conv5')
-        print('Conv5: {}'.format(conv.get_shape()))
-
-        # LAYER 6
-        conv = self.conv(conv, filter_height=1, filter_width=1, num_filters=512,
-                         stride_x=1, stride_y=1, padding='SAME', training=self.is_training, scope_name='conv6')
-        print('Conv6: {}'.format(conv.get_shape()))
-
-        pool = self.max_pool(conv, filter_height=2, filter_width=2, stride_x=2, stride_y=2,
-                             padding='VALID', scope_name='pool3')
-        print('Pool3: {}'.format(pool.get_shape()))
-
-        # LAYER 7
-        conv = self.conv(pool, filter_height=1, filter_width=1, num_filters=256,
-                         stride_x=1, stride_y=1, padding='SAME', training=self.is_training, scope_name='conv7')
-        print('Conv7: {}'.format(conv.get_shape()))
-
-        # LAYER 8
-        conv = self.conv(conv, filter_height=3, filter_width=3, num_filters=512,
-                         stride_x=1, stride_y=1, padding='SAME', training=self.is_training, scope_name='conv8')
-        print('Conv8: {}'.format(conv.get_shape()))
-
-        # LAYER 9
-        conv = self.conv(conv, filter_height=1, filter_width=1, num_filters=256,
-                         stride_x=1, stride_y=1, padding='SAME', training=self.is_training, scope_name='conv9')
-        print('Conv9: {}'.format(conv.get_shape()))
-
-        # LAYER 10
-        conv = self.conv(conv, filter_height=3, filter_width=3, num_filters=512,
-                         stride_x=1, stride_y=1, padding='SAME', training=self.is_training, scope_name='conv10')
-        print('Conv10: {}'.format(conv.get_shape()))
-
-        # LAYER 11
-        conv = self.conv(conv, filter_height=1, filter_width=1, num_filters=256,
-                         stride_x=1, stride_y=1, padding='SAME', training=self.is_training, scope_name='conv11')
-        print('Conv11: {}'.format(conv.get_shape()))
-
-        # LAYER 12
-        conv = self.conv(conv, filter_height=3, filter_width=3, num_filters=512,
-                         stride_x=1, stride_y=1, padding='SAME', training=self.is_training, scope_name='conv12')
-        print('Conv12: {}'.format(conv.get_shape()))
-
-        # LAYER 13
-        conv = self.conv(conv, filter_height=1, filter_width=1, num_filters=512,
-                         stride_x=1, stride_y=1, padding='SAME', training=self.is_training, scope_name='conv13')
-        print('Conv13: {}'.format(conv.get_shape()))
-
-        # LAYER 14
-        conv = self.conv(conv, filter_height=3, filter_width=3, num_filters=512,
-                          stride_x=1, stride_y=1, padding='SAME', training=self.is_training, scope_name='conv14')
-        print('Conv14: {}'.format(conv.get_shape()))
-
-        # LAYER 15
-        conv = self.conv(conv, filter_height=1, filter_width=1, num_filters=512,
-                         stride_x=1, stride_y=1, padding='SAME', training=self.is_training, scope_name='conv15')
-        print('Conv15: {}'.format(conv.get_shape()))
-
-        # LAYER 16
-        conv = self.conv(conv, filter_height=3, filter_width=3, num_filters=1024,
-                          stride_x=1, stride_y=1, padding='SAME', training=self.is_training, scope_name='conv16')
-        print('Conv16: {}'.format(conv.get_shape()))
-
-        pool = self.max_pool(conv, filter_height=2, filter_width=2, stride_x=2, stride_y=2,
-                             padding='VALID', scope_name='pool4')
-        print('Pool4: {}'.format(pool.get_shape()))
-
-        # LAYER 17
-        conv = self.conv(pool, filter_height=1, filter_width=1, num_filters=512,
-                         stride_x=1, stride_y=1, padding='SAME', training=self.is_training, scope_name='conv17')
-        print('Conv17: {}'.format(conv.get_shape()))
-
-        # LAYER 18
-        conv = self.conv(conv, filter_height=3, filter_width=3, num_filters=1024,
-                         stride_x=1, stride_y=1, padding='SAME', training=self.is_training, scope_name='conv18')
-        print('Conv18: {}'.format(conv.get_shape()))
-
-        # LAYER 19
-        conv = self.conv(conv, filter_height=1, filter_width=1, num_filters=512,
-                         stride_x=1, stride_y=1, padding='SAME', training=self.is_training, scope_name='conv19')
-        print('Conv19: {}'.format(conv.get_shape()))
-
-        # LAYER 20
-        conv = self.conv(conv, filter_height=3, filter_width=3, num_filters=1024,
-                         stride_x=1, stride_y=1, padding='SAME', training=self.is_training, scope_name='conv20')
-        print('Conv20: {}'.format(conv.get_shape()))
-
-        # LAYER 21
-        conv = self.conv(conv, filter_height=3, filter_width=3, num_filters=1024,
-                         stride_x=1, stride_y=1, padding='SAME', training=self.is_training, scope_name='conv21')
-        print('Conv21: {}'.format(conv.get_shape()))
-
-        # LAYER 22
-        conv = self.conv(conv, filter_height=3, filter_width=3, num_filters=1024,
-                         stride_x=2, stride_y=2, padding='SAME', training=self.is_training, scope_name='conv22')
-        print('Conv22: {}'.format(conv.get_shape()))
-
-        # LAYER 23
-        conv = self.conv(conv, filter_height=3, filter_width=3, num_filters=1024,
-                         stride_x=1, stride_y=1, padding='SAME', training=self.is_training, scope_name='conv23')
-        print('Conv23: {}'.format(conv.get_shape()))
-
-        # LAYER 24
-        conv = self.conv(conv, filter_height=3, filter_width=3, num_filters=1024,
-                         stride_x=1, stride_y=1, padding='SAME', training=self.is_training, scope_name='conv24')
-        print('Conv24: {}'.format(conv.get_shape()))
-
-        # flatten cnn output for fully connected layer
-        feature_dim = conv.get_shape()[1:4].num_elements()
-        cnn_output = tf.reshape(conv, [self.config.batch_size(), feature_dim])
-        print('Flatten: {}'.format(cnn_output.get_shape()))
-
-        # LAYER 6
-        fc1 = self.fully_connected(cnn_output, 4096, scope_name='fc6')
-        print('FC1: {}'.format(fc1.get_shape()))
-
-        # LAYER 7 - OUTPUT
-        grid_size = self.config.grid_size()
-        num_classes = self.config.num_classes()
-        num_anchors = self.config.num_anchors()
-
-        output_size = (grid_size*grid_size) * num_anchors * (5 + num_classes)
-
-        fc2 = self.fully_connected(fc1, output_size , scope_name='fc7')
-        print('FC2: {}'.format(fc2.get_shape()))
-
-        logits = tf.reshape(fc2, shape=[self.config.batch_size(), grid_size, grid_size, num_anchors, 5 + num_classes])
-        print('Logits: {}'.format(logits.get_shape()))
-
-        return logits
 
     def transform_output_logits(self, logits):
 
@@ -273,11 +115,14 @@ class YOLO(CNNModel):
 
         tf.summary.scalar('learning_rate', self.learning_rate)
 
-        # TODO: control_dependencies added cause of batch_norm ?
-        with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
-            opt = tf.train.AdamOptimizer(self.learning_rate).minimize(loss)
+        optimizer = tf.train.AdamOptimizer(self.learning_rate)
 
-        return opt
+        # TODO: control_dependencies added cause of batch_norm ?
+        update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+        train_op = optimizer.minimize(loss, global_step=self.global_step_tensor)
+        train_op = tf.group([train_op, update_ops])
+
+        return train_op
 
     def yolo_loss(self, predict, label, lambda_cord=5, lambda_noobj=0.5):
 

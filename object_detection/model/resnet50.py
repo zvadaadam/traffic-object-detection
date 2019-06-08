@@ -6,10 +6,12 @@ class Resnet50(CNNModel):
     """
     ResNet50 architecture
     """
-    def __init__(self, cofig: ConfigReader):
-        pass
+    def __init__(self, config: ConfigReader):
+        super(Resnet50, self).__init__(config)
 
     def build_network(self, x, y):
+        # TODO: Resent50
+        pass
 
 
 

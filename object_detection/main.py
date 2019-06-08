@@ -7,6 +7,8 @@ from tensorflow.python import debug as tf_debug
 from object_detection.config.config_reader import ConfigReader
 from object_detection.dataset.udacity_object_dataset import UdacityObjectDataset
 from object_detection.model.YOLO import YOLO
+from object_detection.model.darknet53 import DarkNet53
+from object_detection.model.darknet19 import DarkNet19
 from object_detection.trainer.object_trainer import ObjectTrainer
 from tensorflow.python.client import timeline
 
@@ -15,7 +17,9 @@ def main_train(config: ConfigReader):
 
     dataset = UdacityObjectDataset(config)
 
-    model = YOLO(config)
+    #darknet = DarkNet53(config)
+    darknet = DarkNet19(config)
+    model = YOLO(darknet, config)
 
     tf_config = tf.ConfigProto()
     tf_config.gpu_options.allow_growth = True
@@ -23,7 +27,7 @@ def main_train(config: ConfigReader):
 
     with tf.Session(config=tf_config) as session:
 
-        #session = tf_debug.TensorBoardDebugWrapperSession(session, 'prga-004810.rad.int.avast.com:6064', send_traceback_and_source_code=True)
+        #session = tf_debug.TensorBoardDebugWrapperSession(session, 'prga-004810.rad.int.avast.com:6064', send_traceback_and_source_code=False)
 
         # add additional options to trace the session execution
         options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)

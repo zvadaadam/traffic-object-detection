@@ -21,6 +21,12 @@ class ModelBase(object):
         self.init_placeholders()
 
         self.is_training = None
+        self.loss = None
+        self.acc = None
+        self.opt = None
+        self.logits = None
+        self.x = None
+        self.y = None
 
     def save(self, session, global_step=None, write_meta_graph=True):
         """

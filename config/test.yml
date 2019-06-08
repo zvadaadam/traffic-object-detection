@@ -9,10 +9,10 @@ dataset:
   test_size: 0.3
   num_classes: 5
 hyperparams:
-  batch_size: &batch_size 64
+  batch_size: &batch_size 8
   num_classes: 5
   num_epoches: 2
-  num_iterations: 10
+  num_iterations: 5
   learning_rate: 0.00001
 model:
   model_type: &model_type YOLOv2.5
@@ -21,9 +21,9 @@ model:
   tensorboard_path: !join [tensorboard/, *model_type, _, b, *batch_size]
   restore_trained_model: #!join [trained_models/, *model_type, _, b, *batch_size, -4010]
 yolo:
-  image_height: 448
-  image_width: 448
-  grid_size: 7
-  boxes_per_cell: 1
+  image_height: 416
+  image_width: 416
+  grid_size: 13
+  boxes_per_cell: 3
   num_anchors: 3
   anchores: [[0.05524553571428571, 0.045619419642857144], [0.022042410714285716, 0.029296875], [0.13853236607142858, 0.10407366071428571]]
