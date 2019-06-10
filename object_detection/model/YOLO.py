@@ -255,9 +255,15 @@ class YOLO(ModelBase):
         cord_pred, size_pred = tf.split(pred_box, 2, axis=-1)
         cord_true, size_true = tf.split(label_box, 2, axis=-1)
 
-        image_size = self.config.image_width()
-        cord_pred = cord_pred * image_size
-        cord_true = cord_true * image_size
+        cell_size = self.config.grid_size()
+        grid_size = tf.shape(cord_true)[1]
+        grid = tf.meshgrid(tf.range(grid_size), tf.range(grid_size))
+        grid = tf.expand_dims(tf.stack(grid, axis=-1), axis=2) * cell_size
+        grid = tf.cast(grid, tf.float32)
+
+        #image_size = self.config.image_width()
+        cord_pred = cord_pred * cell_size + grid
+        cord_true = cord_true * cell_size + grid
 
         size_pred = size_pred * self.anchors
         size_true = size_true * self.anchors
@@ -283,7 +289,7 @@ class YOLO(ModelBase):
 
         # from to (x, y, w, h) to (x_min, y_min, x_max, y_max)
         pred_x_min, pred_y_min = pred_x - pred_w / 2, pred_y - pred_h / 2
-        pred_x_max, pred_y_max = pred_x + pred_h / 2, pred_y + pred_h / 2
+        pred_x_max, pred_y_max = pred_x + pred_w / 2, pred_y + pred_h / 2
 
         true_x_min, true_y_min = true_x - true_w / 2, true_y - true_h / 2
         true_x_max, true_y_max = true_x + true_w / 2, true_y + true_h / 2
@@ -299,10 +305,6 @@ class YOLO(ModelBase):
         inter_area = (inter_x_max - inter_x_min) * (inter_y_max - inter_y_min)
         true_area = (true_x_max - true_x_min) * (true_y_max - true_y_min)
         pred_area = (pred_x_max - pred_x_min) * (pred_y_max - pred_y_min)
-
-        # print(inter_area.eval())
-        # print(true_area.eval())
-        # print(pred_area.eval())
 
         # union of area coverd by true and pred boxes
         union = true_area + pred_area - inter_area
@@ -450,8 +452,6 @@ class YOLO(ModelBase):
 
 if __name__ == '__main__':
 
-    #sess = tf.InteractiveSession()
-
     # grid = tf.meshgrid(tf.range(7), tf.range(7))
     # grid = tf.stack(grid, axis=-1)
     #
@@ -476,21 +476,29 @@ if __name__ == '__main__':
     #
     # print(test2.eval())
 
-    # config_path = '/Users/adam.zvada/Documents/Dev/object-detection/config/test.yml'
-    #
-    # yolo = YOLO(ConfigReader(config_path))
-    #
-    # # a = [[0.5, 0.5, 64/448, 64/448], [0.0, 0.0, 64/448, 64/448]]
-    # # b = [[1.0, 1.0, 64/448, 64/448], [1.0, 1.0, 64/448, 64/448]]
-    #
-    # a = [[0.5, 0.5, 1., 1.], [0.5, 0.5, 0.5, 0.5], [0.5, 0.5, 0.25, 0.25]]
-    # b = [[0.5, 0.5, 1., 1.], [0.5, 0.5, 0.5, 0.5], [0.5, 0.5, 0.25, 0.25]]
-    #
-    # label_box = tf.convert_to_tensor(a, np.float32)
-    # pred_box = tf.convert_to_tensor(b, np.float32)
+    sess = tf.InteractiveSession()
+    config_path = '/Users/adam.zvada/Documents/Dev/object-detection/config/test.yml'
+    config = ConfigReader(config_path)
+    network = CNNModel()
+    yolo = YOLO(network, config)
+
+    # a = [[0.5, 0.5, 64/448, 64/448], [0.0, 0.0, 64/448, 64/448]]
+    # b = [[1.0, 1.0, 64/448, 64/448], [1.0, 1.0, 64/448, 64/448]]
+
+    a = [[[0.5, 0.5, 100, 100], [0.5, 0.5, 150, 150], [0.5, 0.5, 10, 10]],
+         [[0.5, 0.5, 100, 100], [0.5, 0.5, 150, 150], [0.5, 0.5, 10, 10]],
+         [[0.5, 0.5, 100, 100], [0.5, 0.5, 150, 150], [0.5, 0.5, 10, 10]]]
+    #a = [[0.5, 0.5, 1., 1.]]
+    b = [[[0.5, 0.5, 100, 100], [0.5, 0.5, 150, 150], [0.5, 0.5, 10, 10]],
+         [[0.5, 0.5, 100, 100], [0.5, 0.5, 150, 150], [0.5, 0.5, 10, 10]],
+         [[0.5, 0.5, 100, 100], [0.5, 0.5, 150, 150], [0.5, 0.5, 10, 10]]]
+    #b = [[0.5, 0.5, 1., 1.]]
+
+    label_box = tf.convert_to_tensor(a, np.float32)
+    pred_box = tf.convert_to_tensor(b, np.float32)
 
     # test IOU
-    #print(yolo.iou(label_box, pred_box).eval())
+    print(yolo.iou(label_box, pred_box).eval())
 
     #print(yolo.convert_to_min_max_cord(label_box, pred_box).eval())
 
@@ -507,8 +515,10 @@ if __name__ == '__main__':
     sess = tf.InteractiveSession()
 
     config_path = '/Users/adam.zvada/Documents/Dev/object-detection/config/test.yml'
+    config = ConfigReader(config_path)
 
-    yolo = YOLO(ConfigReader(config_path))
+    network = CNNModel()
+    yolo = YOLO(network, config)
 
     dataset = UdacityObjectDataset(ConfigReader(config_path))
     iterator = ImageIterator(sess, yolo, dataset, ConfigReader(config_path))

@@ -60,8 +60,8 @@ class CNNModel(object):
             # output = tf.keras.layers.Conv2D(filters=num_filters, kernel_size=(filter_height, filter_width),
             #                                 strides=(stride_x, stride_y), padding=padding)(inputs)
 
-            batch_normed = tf.layers.batch_normalization(output, epsilon=0.00001, scale=True,
-                                                         training=True, momentum=0.9)
+            batch_normed = tf.layers.batch_normalization(output, epsilon=0.001, scale=True,
+                                                         training=training, momentum=0.9)
             # batch_normed = tf.keras.layers.BatchNormalization(momentum=0.9, renorm=True)(output, training=True)
 
             #output = tf.keras.activations.relu(batch_normed)

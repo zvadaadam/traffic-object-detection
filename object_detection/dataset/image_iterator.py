@@ -126,6 +126,34 @@ class ImageIterator(object):
 
         return inputs, dataset_handle
 
+    # TODO: refactor class to not use static
+    @staticmethod
+    def predict_iterator(x, y):
+
+        def normalization(image, label):
+            #image = tf.cond(tf.math.reduce_max(image) > 1.0, lambda: image / 255, lambda: image)
+
+            image = image / 255
+
+            return image, label
+
+        num_images = len(x)
+
+        dataset = tf.data.Dataset.from_tensor_slices((x, y))
+        dataset = dataset.map(normalization)
+        dataset = dataset.batch(num_images)
+
+        dataset = dataset.make_one_shot_iterator()
+
+        input_x, input_y = dataset.get_next()
+
+        inputs = {
+            'x': input_x,
+            'y': input_y,
+        }
+
+        return inputs
+
     def time_pipeline(self, dataset_iterator):
 
         import time
@@ -136,9 +164,9 @@ class ImageIterator(object):
         for i in range(0, self.config.num_iterations()):
             input = self.session.run(dataset_iterator.get_next())
 
-            np.set_printoptions(formatter={'float_kind': '{:f}'.format})
-            print(f'Image: {input[0]}')
-            print(f'Lables: {input[1]}')
+            # np.set_printoptions(formatter={'float_kind': '{:f}'.format})
+            # print(f'Image: {input[0]}')
+            # print(f'Lables: {input[1]}')
 
         end = time.time()
 

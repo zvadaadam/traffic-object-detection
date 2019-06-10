@@ -188,3 +188,5 @@ tensorboard/
 
 object_detection/dataset/udacity_dataset_500.pkl
 trained_models/
+
+imagenet-model/

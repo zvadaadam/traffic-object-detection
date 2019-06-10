@@ -23,8 +23,8 @@ class UdacityObjectDataset(DatasetBase):
         self.load_dataset()
 
         # self.load_dataset_from_pickle('udacity_dataset_500.pkl')
-        self.generate_tfrecords(self.train_df, type='train')
-        self.generate_tfrecords(self.test_df, type='test')
+        # self.generate_tfrecords(self.train_df, type='train')
+        # self.generate_tfrecords(self.test_df, type='test')
 
     def load_dataset_from_pickle(self, path):
         df = self.load_pickle(path)
@@ -65,7 +65,7 @@ class UdacityObjectDataset(DatasetBase):
         occlusions = []
         labels = []
 
-        for data_row in data[0:2000]:
+        for data_row in data[0:500]:
             frames.append(data_row[0])
             x_min.append(data_row[1])
             y_min.append(data_row[2])
