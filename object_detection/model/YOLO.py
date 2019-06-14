@@ -76,7 +76,7 @@ class YOLO(ModelBase):
 
         self.opt = self.optimizer(self.loss, self.config.learning_rate())
 
-        self.eval = self.yolo_eval(yolo_output)
+        self.eval = self.eval_prediction(yolo_output)
 
     def transform_output_logits(self, logits):
 
@@ -157,13 +157,6 @@ class YOLO(ModelBase):
             tf.summary.scalar('loss', loss)
 
         return loss
-
-    def yolo_eval(self, transformed_logits):
-
-        with tf.variable_scope('eval'):
-            boxes, scores, classes = self.eval_boxes(transformed_logits)
-
-        return boxes, scores, classes
 
     def cord_loss(self, label, pred, lambda_cord=5):
         # INPUT: (?, grid_size, grid_size, num_anchors, 5 + num_classes)
@@ -257,7 +250,7 @@ class YOLO(ModelBase):
 
         cell_size = self.config.grid_size()
         grid_size = tf.shape(cord_true)[1]
-        grid = tf.meshgrid(tf.range(grid_size), tf.range(grid_size))
+        grid = tf.meshgrid(tf.range(grid_size), tf.range(grid_size), indexing='xy')
         grid = tf.expand_dims(tf.stack(grid, axis=-1), axis=2) * cell_size
         grid = tf.cast(grid, tf.float32)
 
@@ -265,8 +258,8 @@ class YOLO(ModelBase):
         cord_pred = cord_pred * cell_size + grid
         cord_true = cord_true * cell_size + grid
 
-        size_pred = size_pred * self.anchors
-        size_true = size_true * self.anchors
+        size_pred = size_pred / self.anchors
+        size_true = size_true / self.anchors
 
         pred_x, pred_y = tf.split(cord_pred, 2, axis=-1)
         pred_w, pred_h = tf.split(size_pred, 2, axis=-1)
@@ -333,57 +326,64 @@ class YOLO(ModelBase):
 
         return loss_class
 
-    def eval_boxes(self, y_pred):
+    def eval_prediction(self, y_pred):
 
         boxes = y_pred[..., :4]
-        confidence = tf.expand_dims(y_pred[..., 4], axis=-1)
-        classes = y_pred[..., :5]
+        confidence = y_pred[..., 4:5]
+        classes = y_pred[..., 5:]
 
         batch_size = y_pred.get_shape()[0]
 
         # convert to from (x,y,w,h) to (y1, x1, y2, x2) cause of nms
         boxes = self.convert_to_min_max_cord(boxes, batch_size)
 
-        #self.debug = [y_pred[..., :4], boxes]
-
         boxes, scores, classes = self.filter_boxes(boxes, confidence, classes)
 
-        # TODO: revert box swapping after NMS
-        return self.non_max_suppression(boxes, scores, classes)
+        return boxes, scores, classes
 
 
     def filter_boxes(self, boxes, confidence, classes, threshold=0.5):
         """Filters YOLO boxes by thresholding on object and class confidence."""
 
-
         # Compute box scores
-        box_scores = confidence * classes
+        # box_scores = confidence * classes
 
         # index of highest box score (return vector?)
-        box_classes = tf.argmax(box_scores, axis=-1)
+        #box_classes = tf.argmax(box_scores, axis=-1)
 
         # value of the highest box score (return vector?)
-        box_class_scores = tf.reduce_max(box_scores, axis=-1)
+        #box_class_scores = tf.reduce_max(box_scores, axis=-1)
+
+        box_classes = tf.argmax(classes, axis=-1)
+        box_class_scores = tf.reduce_max(confidence, axis=-1)
 
         prediction_mask = (box_class_scores >= threshold)
 
         boxes = tf.boolean_mask(boxes, prediction_mask)
-
         scores = tf.boolean_mask(box_class_scores, prediction_mask)
         classes = tf.boolean_mask(box_classes, prediction_mask)
 
-        return boxes, scores, classes
+        return self.non_max_suppression(boxes, scores, classes)
 
-    def non_max_suppression(self, boxes, scores, classes, max_boxes=30, score_threshold=0.3, iou_threshold=0.5):
+        # TODO: Problem is that tf.boolean_mask deletes the information about batch size and does not support keepdims.
+        #  Tried to apply tf.map_fn, but it does not support inconsistent output shapes.
+        #  Above I used typical for-loop but not sure if it won't be slowing down inference, refactor in future.
+        # def filter_batch_box(boxes, box_class_scores, box_classes, prediction_mask):
+        #     boxes = tf.boolean_mask(boxes, prediction_mask)
+        #     scores = tf.boolean_mask(box_class_scores, prediction_mask)
+        #     classes = tf.boolean_mask(box_classes, prediction_mask)
+        # return tf.map_fn(lambda x: filter_batch_box(*x),
+        #                  (boxes, box_class_scores, box_classes, prediction_mask),
+        #                  dtype=(tf.float32, tf.float32, tf.int64),
+        #                  infer_shape=False)
+
+    def non_max_suppression(self, boxes, scores, classes, max_boxes=30, score_threshold=0.5, iou_threshold=0.5):
         """ Applying NMS, optimized box location for same classes"""
 
         max_boxes_tensor = tf.constant(max_boxes, dtype='int32')
 
         nms_index = tf.image.non_max_suppression(boxes, scores, max_boxes_tensor,
                                                  iou_threshold=iou_threshold, score_threshold=score_threshold)
-
-        # nms_index = tf.image.non_max_suppression(boxes, scores, max_boxes_tensor, iou_threshold=iou_threshold)
-
         boxes = tf.gather(boxes, nms_index)
         scores = tf.gather(scores, nms_index)
         classes = tf.gather(classes, nms_index)
@@ -440,8 +440,6 @@ class YOLO(ModelBase):
                            box_maxes[..., 0:1],  # x_max
                            box_maxes[..., 1:2],  # y_max
         ], axis=-1)
-
-        self.debug = boxes
 
         # return flatten out boxes (B*7*7, 4)
         #return tf.reshape(boxes, (-1, 4))

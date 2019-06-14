@@ -6,3 +6,4 @@ PyYAML
 opencv-python
 matplotlib
 tqdm
+Pillow

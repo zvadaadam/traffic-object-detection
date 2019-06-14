@@ -22,10 +22,6 @@ class Detector(object):
         model_weight_path = self.config.restore_trained_model()
 
         with tf.Session() as session:
-            self.model.init_saver(max_to_keep=2)
-
-            self.model.load(session, model_weight_path)
-
             # TODO: delete tmp_label
             input = ImageIterator.predict_iterator(img, tmp_label)
 
@@ -35,11 +31,14 @@ class Detector(object):
             init = tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())
             session.run(init)
 
-            output = session.run(
-                [self.model.eval],
+            self.model.init_saver(max_to_keep=2)
+            self.model.load(session, model_weight_path)
+
+            input, output, loss = session.run(
+                [self.model.input, self.model.eval, self.model.get_loss()],
                 feed_dict={self.model.is_training: False})
 
-        return output
+        return output, loss
 
 
 if __name__ == '__main__':
@@ -58,23 +57,28 @@ if __name__ == '__main__':
     dataset = UdacityObjectDataset(config)
     test_df = dataset.test_dataset()
 
-    images = np.array(test_df['image'].values.tolist()[0:8], dtype=np.float32)
-    labels = np.array(test_df['label'].values.tolist()[0:8], dtype=np.float32)
-
-    print(images.shape)
+    image = np.array(test_df['image'].values.tolist()[0:1], dtype=np.float32)
+    label = np.array(test_df['label'].values.tolist()[0:1], dtype=np.float32)
 
     now = datetime.datetime.now()
-    output = detector.predict(images, labels)
+    output, loss = detector.predict(image, label)
     after = datetime.datetime.now()
     print(f'Inference Duration: {after - now}')
+    print(f'Loss: {loss}')
 
-    print(output)
+    # img = image[0] / 255
+    # img = image_utils.draw_boxes_cv(img, output[0], output[1], output[2])
+    # image_utils.plot_img(img)
 
-    for img in images:
-        img = images[0] / 255
-        for box in output[0][0]:
-            img = image_utils.add_bb_to_img(img, box[0], box[1], box[2], box[3])
+    # img = image[0] / 255
+    # for box in output[0]:
+    #     img = image_utils.add_bb_to_img(img, box[0], box[1], box[2], box[3])
+    # image_utils.plot_img(img)
+    #
 
-        image_utils.plot_img(img)
-
-
+    img = image[0] / 255
+    img = image_utils.draw_boxes_PIL(img, output[0], output[1], output[2])
+    from matplotlib.pyplot import imshow
+    import matplotlib.pyplot as plt
+    imshow(img)
+    plt.show()

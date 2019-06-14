@@ -107,12 +107,12 @@ class ImageIterator(object):
         images = np.array(df['image'].values.tolist(), dtype=np.float32)
         labels = np.array(df['label'].values.tolist())
 
-        for i in range(0, len(images)):
-            img = images[i]
-            img = img.astype('float32')
-
-            if img.max() > 1.0:
-                img /= 255.0
+        # for i in range(0, len(images)):
+        #     img = images[i]
+        #     img = img.astype('float32')
+        #
+        #     if img.max() > 1.0:
+        #         img /= 255.0
 
         feed = {
             self.model.x: images,

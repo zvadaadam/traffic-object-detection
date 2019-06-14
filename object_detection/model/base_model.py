@@ -51,6 +51,7 @@ class ModelBase(object):
 
         if model_path != None:
             self.saver.restore(session, model_path)
+            return
 
         latest_checkpoint = tf.train.latest_checkpoint(self.config.trained_model_path())
         if latest_checkpoint:

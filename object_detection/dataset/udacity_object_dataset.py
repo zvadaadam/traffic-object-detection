@@ -37,7 +37,7 @@ class UdacityObjectDataset(DatasetBase):
     def load_dataset(self):
         df = self.load_udacity_dataset()
 
-        train_df, test_df = train_test_split(df, test_size=self.config.test_size())
+        train_df, test_df = train_test_split(df, test_size=self.config.test_size(), random_state=42)
 
         self.set_train_df(train_df)
         self.set_test_df(test_df)
@@ -65,7 +65,7 @@ class UdacityObjectDataset(DatasetBase):
         occlusions = []
         labels = []
 
-        for data_row in data[0:500]:
+        for data_row in data[0:2000]:
             frames.append(data_row[0])
             x_min.append(data_row[1])
             y_min.append(data_row[2])
@@ -197,11 +197,11 @@ class UdacityObjectDataset(DatasetBase):
 
                     #print(f'{cell_x}, {cell_y}, {a_w}, {a_h}')
 
-                    x_min = int((((cell_x*64) + g_x*64) - (a_w * (rel_anchor_width * image_size)/2)))
-                    y_min = int((((cell_y*64) + g_y*64) - (a_h * (rel_anchor_height * image_size)/2)))
+                    x_min = int((((cell_x*cell_size) + g_x*cell_size) - (a_w * (rel_anchor_width * image_size)/2)))
+                    y_min = int((((cell_y*cell_size) + g_y*cell_size) - (a_h * (rel_anchor_height * image_size)/2)))
 
-                    x_max = int((((cell_x*64) + g_x*64) + (a_w * (rel_anchor_width * image_size)/2)))
-                    y_max = int((((cell_y*64) + g_y*64) + (a_h * (rel_anchor_height * image_size)/2)))
+                    x_max = int((((cell_x*cell_size) + g_x*cell_size) + (a_w * (rel_anchor_width * image_size)/2)))
+                    y_max = int((((cell_y*cell_size) + g_y*cell_size) + (a_h * (rel_anchor_height * image_size)/2)))
 
                     #print(f'{x_min}, {y_min}, {x_max}, {y_max}')
 

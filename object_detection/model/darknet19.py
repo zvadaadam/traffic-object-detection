@@ -92,6 +92,7 @@ class DarkNet19(CNNModel):
         # output = tf.keras.layers.GlobalAveragePooling2D()(conv)
         # output = tf.keras.layers.Dense(1000, activation='softmax')(output)
 
+        # TODO: reshape to ambigous batch size
         logits = tf.reshape(conv, shape=[self.config.batch_size(),
                                          self.config.grid_size(), self.config.grid_size(),
                                          self.config.boxes_per_cell(),

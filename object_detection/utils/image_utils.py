@@ -2,6 +2,7 @@ import os
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
+from PIL import ImageFont, ImageDraw, Image
 
 
 def load_img(dataset_path, image_path):
@@ -19,8 +20,8 @@ def add_bb_to_img(img, x_min, y_min, x_max, y_max, is_occulded=False):
 
     return cv2.rectangle(img, pt1, pt2, color, 1)
 
-def plot_img(img):
 
+def plot_img(img):
     plt.imshow(cv2.cvtColor(img, 4))
     plt.show()
 
@@ -28,70 +29,68 @@ def plot_img(img):
 def resize_image(img, new_width, new_height):
     return cv2.resize(img, (new_width, new_height, ), interpolation=cv2.INTER_CUBIC)
 
-def evaluate_prediction(y_pred, y_true, iou_threshold=0.5, score_treshold=0.4):
 
-    batch_size = y_true[0].shape[0]
-
-def bbox_iou(A, B):
-
-    intersect_mins = np.maximum(A[:, 0:2], B[:, 0:2])
-    intersect_maxs = np.minimum(A[:, 2:4], B[:, 2:4])
-    intersect_wh = np.maximum(intersect_maxs - intersect_mins, 0.)
-    intersect_area = intersect_wh[..., 0] * intersect_wh[..., 1]
-
-    A_area = np.prod(A[:, 2:4] - A[:, 0:2], axis=1)
-    B_area = np.prod(B[:, 2:4] - B[:, 0:2], axis=1)
-
-    iou = intersect_area / (A_area + B_area - intersect_area)
-
-    return iou
-
-
-def iou(box1, box2):
-    """Implement the intersection over union (IoU) between box1 and box2
-    Arguments:
-    box1 -- first box, list object with coordinates (x1, y1, x2, y2)
-    box2 -- second box, list object with coordinates (x1, y1, x2, y2)
-    """
-
-    # Calculate the (y1, x1, y2, x2) coordinates of the intersection of box1 and box2. Calculate its Area.
-    xi1 = np.maximum(box1[0], box2[0])
-    yi1 = np.maximum(box1[1], box2[1])
-    xi2 = np.minimum(box1[2], box2[2])
-    yi2 = np.minimum(box1[3], box2[3])
-
-    # Case in which they don't intersec --> max(,0)
-    inter_area = max(xi2-xi1, 0)*max(yi2-yi1, 0)
-
-    # Calculate the Union area by using Formula: Union(A,B) = A + B - Inter(A,B)
-    box1_area = (box1[2]-box1[0])*(box1[3]-box1[1])
-    box2_area = (box2[2]-box2[0])*(box2[3]-box2[1])
-    union_area = box1_area + box2_area - inter_area
-
-    # compute the IoU
-    iou = float(inter_area)/float(union_area)
-
-    return iou
-
-
-def draw_boxes(image, boxes, labels):
+def draw_boxes_cv(image, boxes, scores, classes):
     image_h, image_w, _ = image.shape
 
-    for box in boxes:
-        xmin = int(box.xmin * image_w)
-        ymin = int(box.ymin * image_h)
-        xmax = int(box.xmax * image_w)
-        ymax = int(box.ymax * image_h)
+    for box, score, object_class in zip(boxes, scores, classes):
 
-        cv2.rectangle(image, (xmin, ymin), (xmax, ymax), (0, 255, 0), 3)
-        cv2.putText(image,
-                    labels[box.get_label()] + ' ' + str(box.get_score()),
-                    (xmin, ymin - 13),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    1e-3 * image_h,
-                    (0, 255, 0), 2)
+        label = '{} {:.2f}'.format(object_class, score)
+
+        x_min, y_min, x_max, y_max = box
+
+        x_min = max(0, x_min)
+        y_min = max(0, y_min)
+        x_max = min(image_h, x_max)
+        y_max = min(image_w, y_max)
+
+        cv2.rectangle(image, (x_min, y_min), (x_max, y_max), (0, 255, 0), 1)
+        cv2.putText(image, label, (int(x_min), int(y_min - 1)), cv2.FONT_HERSHEY_SIMPLEX,
+                    0.25, (0, 255, 0), 1, cv2.LINE_AA)
 
     return image
+
+
+def draw_boxes_PIL(image, boxes, scores, classes):
+
+    cv2_im_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    image = Image.fromarray(np.uint8(cv2_im_rgb*255))
+
+    #font = ImageFont.truetype(font='font/FiraMono-Medium.otf', size=2)
+    font = ImageFont.load_default()
+    thickness = (image.size[0] + image.size[1]) // 300
+
+    for box, score, object_class in zip(boxes, scores, classes):
+
+        label = '{} {:.2f}'.format(object_class, score)
+
+        draw = ImageDraw.Draw(image)
+        label_size = draw.textsize(label, font)
+
+        x_min, y_min, x_max, y_max = box
+
+        x_min = max(0, x_min)
+        y_min = max(0, y_min)
+        x_max = min(image.size[0], x_max)
+        y_max = min(image.size[1], y_max)
+
+        print(label, (x_min, y_min), (x_max, y_max))
+
+        if y_min - label_size[1] >= 0:
+            text_origin = np.array([x_min, y_min - label_size[1]])
+        else:
+            text_origin = np.array([x_min, y_min + 1])
+
+        for i in range(thickness):
+            draw.rectangle([x_min + i, y_min + i, x_max - i, y_max - i])
+
+        draw.rectangle([tuple(text_origin), tuple(text_origin + label_size)], fill=(255, 0, 0))
+        draw.text(tuple(text_origin), label, fill=(0, 0, 0), font=font)
+
+        del draw
+
+    return np.array(image.convert('RGB'))
+
 
 # Discard all boxes with low scores and high IOU
 # def non_max_suppression(boxes, scores, num_classes, max_boxes=50, score_thresh=0.3, iou_thresh=0.5):
