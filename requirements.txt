@@ -7,3 +7,4 @@ opencv-python
 matplotlib
 tqdm
 Pillow
+xmltodict
