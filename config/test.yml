@@ -9,7 +9,7 @@ dataset:
   test_size: 0.3
   num_classes: 5
 hyperparams:
-  batch_size: &batch_size 1
+  batch_size: &batch_size 8
   num_classes: 5
   num_epoches: 100
   num_iterations: 5
@@ -19,7 +19,7 @@ model:
   trained_path:  trained_models/
   model_description: !join [*model_type, _, b, *batch_size]
   tensorboard_path: !join [tensorboard/, *model_type, _, b, *batch_size]
-  restore_trained_model: trained_models/yolo_v1.0/YOLOv0.4_b32-104600 #!join [trained_models/, *model_type, _, b, *batch_size, -4010]
+  restore_trained_model: #trained_models/yolo_v1.0/YOLOv0.4_b32-104600 #!join [trained_models/, *model_type, _, b, *batch_size, -4010]
 yolo:
   image_height: 416
   image_width: 416

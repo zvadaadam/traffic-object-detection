@@ -65,7 +65,7 @@ class UdacityObjectDataset(DatasetBase):
         occlusions = []
         labels = []
 
-        for data_row in data[0:2000]:
+        for data_row in data[0:500]:
             frames.append(data_row[0])
             x_min.append(data_row[1])
             y_min.append(data_row[2])

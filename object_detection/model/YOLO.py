@@ -16,6 +16,7 @@ class YOLO(ModelBase):
         self.scores = None
         self.classes = None
         self.img = None
+        self.detections = None
 
         # TODO: read from config
         #self.anchors = [(0.1, 0.15), (0.3, 0.25), (0.4, 0.5)]
@@ -57,26 +58,33 @@ class YOLO(ModelBase):
     def get_labels(self):
         return self.labels
 
-    def build_model(self, input):
+    def build_model(self, mode='train', x=None, y=None):
 
-        self.input = input
+        if mode not in ['train', 'eval', 'predict']:
+            raise Exception('Unsupported mode...')
 
-        x, y = input['x'], input['y']
+        if x is None:
+            x = self.x
 
         print('Building computation graph...')
+        logits = self.network.build_network(x, self.is_training)
+        logits = self.transform_output_logits(logits)
 
-        yolo_output = self.network.build_network(x, self.is_training)
+        if mode == 'predict':
+            self.detections = self.eval_prediction(logits)
+            return
 
-        if len(yolo_output.get_shape()) > 5:
-            raise Exception('Prediction Across Scale not supported.')
+        if y is None:
+            y = self.y
 
-        yolo_output = self.transform_output_logits(yolo_output)
+        self.loss = self.yolo_loss(logits, y)
 
-        self.loss = self.yolo_loss(yolo_output, y)
+        # TODO: add calculation of accuracy
 
-        self.opt = self.optimizer(self.loss, self.config.learning_rate())
+        if mode == 'train':
+            self.opt = self.optimizer(self.loss, self.config.learning_rate())
 
-        self.eval = self.eval_prediction(yolo_output)
+        return
 
     def transform_output_logits(self, logits):
 
@@ -97,27 +105,20 @@ class YOLO(ModelBase):
 
     def optimizer(self, loss, start_learning_rate=0.0001):
 
-        # self.learning_rate = tf.cond(tf.math.greater(tf.constant(300), self.global_step_tensor),
+        stabel_lr_epoches = 80
+
+        # self.learning_rate = tf.cond(
+        #     tf.math.greater(tf.constant(stabel_lr_epoches * self.config.batch_size() * self.config.num_iterations()), self.global_step_tensor),
         #             lambda: tf.constant(start_learning_rate),
-        #             lambda: tf.train.polynomial_decay(0.0001, self.global_step_tensor - tf.constant(300), 50, 0.0000001))
+        #             lambda: tf.train.polynomial_decay(start_learning_rate, self.global_step_tensor - tf.constant(300), 50, 0.0000001))
 
-
-        # learning_rate = tf.train.cosine_decay_restarts(start_learning_rate, self.global_step_tensor, first_decay_steps=100,
-        #                              t_mul=2.0, m_mul=1.2, alpha=0.0, name=None)
-
-        #self.learning_rate = tf.train.exponential_decay(self.config.learning_rate(), self.global_step_tensor, 50, 0.9, staircase=True)
-
-        #tf.train.polynomial_decay(self.config.learning_rate(), self.global_step_tensor, 50, 0.0000001)
-
-        self.learning_rate = tf.constant(start_learning_rate)
-
-        print(start_learning_rate)
+        #self.learning_rate = tf.constant(start_learning_rate)
 
         tf.summary.scalar('learning_rate', self.learning_rate)
 
         optimizer = tf.train.AdamOptimizer(self.learning_rate)
 
-        # TODO: control_dependencies added cause of batch_norm ?
+        # control_dependencies added cause of batch_norm
         update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
         train_op = optimizer.minimize(loss, global_step=self.global_step_tensor)
         train_op = tf.group([train_op, update_ops])
@@ -175,12 +176,8 @@ class YOLO(ModelBase):
 
             # TODO: Add punishment?
             # hack from darknet: box punishment - give higher weights to small boxes
-            # box_loss_scale = 2. - (label_size[..., 0] * label_size[..., 1])
+            box_loss_scale = 2. - (label_size[..., 0] * label_size[..., 1])
             # box_loss_scale = tf.expand_dims(box_loss_scale, axis=-1)
-            #
-            # a = tf.constant(3.14, shape=box_loss_scale.get_shape(), dtype=tf.float32)
-            # b = tf.constant(0, shape=box_loss_scale.get_shape(), dtype=tf.float32)
-            # self.debug = tf.concat([label[..., 2:4], tf.where(tf.greater(0., box_loss_scale), a, b), box_loss_scale], axis=-1)
 
             # inverting ground truth to match network output for gradient update (pred_size is transformed using exp)
             pred_size = tf.math.log(pred_size)
@@ -203,17 +200,6 @@ class YOLO(ModelBase):
 
     def confidence_loss(self, label, pred, lambda_obj=1, lambda_noobj=0.5):
 
-        # ---TESTING PURPOSE----
-        # indicator_noobj = tf.dtypes.cast(indicator_noobj > 0.6, tf.float32)
-        # print(indicator_noobj.eval())
-        # ---TESTING PURPOSE----
-
-
-        # ---TESTING PURPOSE----
-        # indicator_obj = tf.dtypes.cast(indicator_obj > 0.4, tf.float32)
-        # print(indicator_obj.eval())
-        # ---TESTING PURPOSE----
-
         with tf.name_scope('confidence'):
             mask_obj = tf.expand_dims(label[..., 4], axis=-1)
             mask_noobj = (1 - mask_obj)
@@ -224,7 +210,6 @@ class YOLO(ModelBase):
             iou = self.iou(label[..., 0:4], pred[..., 0:4])
 
             # good detections
-            object_detections = tf.cast(iou > 0.5, dtype=tf.float32)
             bad_object_detections = tf.cast(iou < 0.5, dtype=tf.float32)  # 1 - object_detections
 
             # NOT DETECTED OBJECT - punish bad detection
@@ -254,7 +239,6 @@ class YOLO(ModelBase):
         grid = tf.expand_dims(tf.stack(grid, axis=-1), axis=2) * cell_size
         grid = tf.cast(grid, tf.float32)
 
-        #image_size = self.config.image_width()
         cord_pred = cord_pred * cell_size + grid
         cord_true = cord_true * cell_size + grid
 
@@ -266,19 +250,6 @@ class YOLO(ModelBase):
 
         true_x, true_y = tf.split(cord_true, 2, axis=-1)
         true_w, true_h = tf.split(size_true, 2, axis=-1)
-
-        # pred_x, pred_y, pred_w, pred_h = tf.split(pred_box, 4, axis=-1)
-        # true_x, true_y, true_w, true_h = tf.split(label_box, 4, axis=-1)
-
-        # pred_x, pred_y, pred_w, pred_h = tf.split(pred_box, 4, axis=1)
-        # true_x, true_y, true_w, true_h = tf.split(label_box, 4, axis=1)
-
-        # update boxes to absolute values
-        # pred_w, pred_h = image_size*pred_w, image_size*pred_h
-        # true_w, true_h = image_size*true_w, image_size*true_h
-        #
-        # pred_x, pred_y = 64*pred_x, 64*pred_y
-        # true_x, true_y = 64*true_x, 64*true_y
 
         # from to (x, y, w, h) to (x_min, y_min, x_max, y_max)
         pred_x_min, pred_y_min = pred_x - pred_w / 2, pred_y - pred_h / 2
@@ -306,11 +277,6 @@ class YOLO(ModelBase):
         return inter_area / (union + 0.0001)
 
     def classes_loss(self, label, pred):
-
-        # ---TESTING PURPOSE----
-        # indicator_class = tf.dtypes.cast(indicator_class > 0.6, tf.float32)
-        # print(indicator_class.eval())
-        # ---TESTING PURPOSE----
 
         with tf.name_scope('class'):
             mask_class = tf.expand_dims(label[..., 4], axis=-1)
@@ -405,12 +371,10 @@ class YOLO(ModelBase):
         grid = tf.tile(grid, [1, 1, len(self.anchors), 1])
         grid = tf.cast(grid, dtype=tf.float32)
 
-        image_size = tf.constant(self.config.image_height(), dtype=tf.float32)
         cell_size = tf.constant(self.config.image_height()/self.config.grid_size(), dtype=tf.float32)
         grid = tf.stack([grid] * batch_size)
 
         # calculate relative coordinates, where xy is relative to cell_sizes and wh to appropriate anchor
-        #box_xy = (box_xy * cell_size) + grid
         box_xy = box_xy + grid
         box_wh = (box_wh * np.array(self.anchors))
 
@@ -423,29 +387,13 @@ class YOLO(ModelBase):
         box_mins = box_xy - (box_wh / 2.)
         box_maxes = box_xy + (box_wh / 2.)
 
-        # to relative sizes
-        # grid_length = cell_size * tf.cast(num_grids, dtype=tf.float32)
-        # box_mins = box_mins/grid_length
-        # box_maxes = box_maxes/grid_length
-
-        # TODO: check if swapping needed for NMS
-        # boxes = tf.concat([box_mins[..., 1:2],  # y_min
-        #                    box_mins[..., 0:1],  # x_min
-        #                    box_maxes[..., 1:2],  # y_max
-        #                    box_maxes[..., 0:1]  # x_max
-        # ], axis=-1)
-
         boxes = tf.concat([box_mins[..., 0:1],   # x_min
                            box_mins[..., 1:2],   # y_min
                            box_maxes[..., 0:1],  # x_max
                            box_maxes[..., 1:2],  # y_max
         ], axis=-1)
 
-        # return flatten out boxes (B*7*7, 4)
-        #return tf.reshape(boxes, (-1, 4))
-
         return boxes
-
 
 
 if __name__ == '__main__':

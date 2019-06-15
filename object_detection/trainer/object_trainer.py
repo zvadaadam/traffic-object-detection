@@ -24,13 +24,13 @@ class ObjectTrainer(BaseTrain):
 
     def dataset_iterator(self, mode='train'):
 
-        model_train_inputs, train_handle = self.iterator.create_iterator(mode='train')
-        _, test_handle = self.iterator.create_iterator(mode='test')
+        x, y, train_handle = self.iterator.create_iterator(mode='train')
+        _, _, test_handle = self.iterator.create_iterator(mode='test')
 
-        # model_train_inputs, train_handle = self.iterator.create_iterator_from_tfrecords(mode='train')
+        # x, y, train_handle = self.iterator.create_iterator_from_tfrecords(mode='train')
         # _, test_handle = self.iterator.create_iterator_from_tfrecords(mode='test')
 
-        return model_train_inputs, train_handle, test_handle
+        return x, y, train_handle, test_handle
 
     def train(self):
         """
@@ -40,12 +40,12 @@ class ObjectTrainer(BaseTrain):
         It has the capabilities to restore and save trained models.
         """
 
-        model_train_inputs, train_handle, test_handle = self.dataset_iterator()
+        x, y, train_handle, test_handle = self.dataset_iterator()
 
         self.train_handle = train_handle
         self.test_handle = test_handle
 
-        self.model.build_model(model_train_inputs)
+        self.model.build_model(mode='train', x=x, y=y)
 
         train_writer, test_writer, merged_summaries = self.init_tensorboard()
 
@@ -134,10 +134,8 @@ class ObjectTrainer(BaseTrain):
 
         num_iterations = self.config.num_iterations() * cur_epoche
 
-        input, loss, output, summary, loss_cord, loss_size, loss_obj, loss_noobj, loss_class, learning_rate = self.session.run(
-            [self.model.input,
-             self.model.get_loss(),
-             self.model.eval,
+        loss, summary, loss_cord, loss_size, loss_obj, loss_noobj, loss_class, learning_rate = self.session.run(
+            [self.model.get_loss(),
              merged_summaries,
              self.model.loss_cord,
              self.model.loss_size,
@@ -151,40 +149,27 @@ class ObjectTrainer(BaseTrain):
 
         test_writer.add_summary(summary, num_iterations)
 
-        np.set_printoptions(formatter={'float_kind': '{:f}'.format})
-
-        (boxes, scores, classes) = output
-
         # -----------TESTING-----------
-        if boxes.shape[0] == 0:
-            print('NO BOXES RETURNED!')
-            return loss, loss_cord, loss_size, loss_obj, loss_noobj, loss_class, learning_rate
-
-        print(f'Predicted: {boxes[0][0]}, {boxes[0][1]}, {boxes[0][2]}, {boxes[0][3]}')
-
-        label_boxes = []
-        for label in np.reshape(input['y'][0], newshape=[49, 3, 10]):
-            label_boxes.append(label)
-
-        for img in input['x']:
-            image = img / 255
-            for box in output[0]:
-                image = image_utils.add_bb_to_img(image, box[0], box[1], box[2], box[3])
-
-            image_utils.plot_img(image)
-
-        # print(f'Label: {label_boxes[0][0][0]}, {label_boxes[0][0][1]}, {label_boxes[0][0][2]}, {label_boxes[0][0][3]}')
-
-        #image_utils.plot_img(image_utils.add_bb_to_img(image[0], boxes[0][0], boxes[0][1], boxes[0][2], boxes[0][3]))
-
-        # x_min, y_min, x_max, y_max = yolo_utils.from_yolo_to_cord(boxes[0], image[0].shape)
-        # print(f'Predicted: {x_min}, {y_min}, {x_max}, {y_max}')
-        # image_utils.add_bb_to_img(image[0], x_min, y_min, x_max, y_max)
+        # np.set_printoptions(formatter={'float_kind': '{:f}'.format})
         #
+        # (boxes, scores, classes) = output
         #
-        # x_min, y_min, x_max, y_max = yolo_utils.from_yolo_to_cord(label_boxes[0][0:4], image[0].shape)
-        # print(f'Label: {x_min}, {y_min}, {x_max}, {y_max}')
-        # image_utils.plot_img(image_utils.add_bb_to_img(image[0], x_min, y_min, x_max, y_max))
+        # if boxes.shape[0] == 0:
+        #     print('NO BOXES RETURNED!')
+        #     return loss, loss_cord, loss_size, loss_obj, loss_noobj, loss_class, learning_rate
+        #
+        # print(f'Predicted: {boxes[0][0]}, {boxes[0][1]}, {boxes[0][2]}, {boxes[0][3]}')
+        #
+        # label_boxes = []
+        # for label in np.reshape(input['y'][0], newshape=[49, 3, 10]):
+        #     label_boxes.append(label)
+        #
+        # for img in input['x']:
+        #     image = img / 255
+        #     for box in output[0]:
+        #         image = image_utils.add_bb_to_img(image, box[0], box[1], box[2], box[3])
+        #
+        #     image_utils.plot_img(image)
         # -----------TESTING-----------
 
         return loss, loss_cord, loss_size, loss_obj, loss_noobj, loss_class, learning_rate

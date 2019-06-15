@@ -58,7 +58,8 @@ def draw_boxes_PIL(image, boxes, scores, classes):
 
     #font = ImageFont.truetype(font='font/FiraMono-Medium.otf', size=2)
     font = ImageFont.load_default()
-    thickness = (image.size[0] + image.size[1]) // 300
+    #thickness = (image.size[0] + image.size[1]) // 300
+    thickness = 1
 
     for box, score, object_class in zip(boxes, scores, classes):
 

@@ -40,17 +40,13 @@ class ImageIterator(object):
         dataset_handle = self.session.run(dataset_iterator.string_handle())
 
         x, y = dataset_iterator.get_next()
-        inputs = {
-            'x': x,
-            'y': y,
-        }
 
         self.session.run(dataset_iterator.initializer)
 
         # show data pipeline performance
         self.time_pipeline(dataset_iterator)
 
-        return inputs, dataset_handle
+        return x, y, dataset_handle
 
     def preprocess_tfrecords(self, data_tfrecord):
 
@@ -94,10 +90,6 @@ class ImageIterator(object):
         dataset_handle = self.session.run(dataset_iterator.string_handle())
 
         x, y = dataset_iterator.get_next()
-        inputs = {
-            'x': x,
-            'y': y,
-        }
 
         if mode == 'train':
             df = self.dataset.train_dataset()
@@ -124,7 +116,7 @@ class ImageIterator(object):
         # show data pipeline performance
         self.time_pipeline(dataset_iterator)
 
-        return inputs, dataset_handle
+        return x, y, dataset_handle
 
     # TODO: refactor class to not use static
     @staticmethod
