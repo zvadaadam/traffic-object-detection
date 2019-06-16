@@ -20,6 +20,8 @@ class ConfigReader(object):
 
             self.info = config['info']
             self.dataset = config['dataset']
+            self.udacity = config['udacity']
+            self.rovit = config['rovit']
             self.hyperparams = config['hyperparams']
             self.model = config['model']
             self.yolo = config['yolo']
@@ -70,6 +72,94 @@ class ConfigReader(object):
 
     def num_classes(self):
         return self.dataset['num_classes']
+
+    # --DATASET--
+
+    def udacity_dataset_name(self):
+        return self.udacity['name']
+
+    def udacity_root_dataset(self):
+        path = self.udacity['root_dataset']
+
+        if path == None:
+            return None
+
+        return self._absolute_path(path)
+
+
+    def udacity_dataset_path(self):
+        path = self.udacity['dataset_path']
+
+        if path == None:
+            return None
+
+        return self._absolute_path(path)
+
+    def udacity_tfrecords_train_path(self):
+        path = self.udacity['tfrecords_train_path']
+
+        if path == None:
+            return None
+
+        return self._absolute_path(path)
+
+    def udacity_tfrecords_test_path(self):
+        path = self.udacity['tfrecords_test_path']
+
+        if path == None:
+            return None
+
+        return self._absolute_path(path)
+
+    def udacity_test_size(self):
+        return self.udacity['test_size']
+
+    def udacity_num_classes(self):
+        return self.udacity['num_classes']
+
+    # --ROVIT--
+
+    def rovit_dataset_name(self):
+        return self.rovit['name']
+
+    def rovit_root_dataset(self):
+        path = self.rovit['root_dataset']
+
+        if path == None:
+            return None
+
+        return self._absolute_path(path)
+
+
+    def rovit_dataset_path(self):
+        path = self.rovit['dataset_path']
+
+        if path == None:
+            return None
+
+        return self._absolute_path(path)
+
+    def rovit_tfrecords_train_path(self):
+        path = self.rovit['tfrecords_train_path']
+
+        if path == None:
+            return None
+
+        return self._absolute_path(path)
+
+    def rovit_tfrecords_test_path(self):
+        path = self.rovit['tfrecords_test_path']
+
+        if path == None:
+            return None
+
+        return self._absolute_path(path)
+
+    def rovit_test_size(self):
+        return self.rovit['test_size']
+
+    def rovit_num_classes(self):
+        return self.rovit['num_classes']
 
     # --YOLO--
 

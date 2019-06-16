@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 import numpy as np
 import tensorflow as tf
@@ -20,237 +21,198 @@ class UdacityObjectDataset(DatasetBase):
                         [0.022042410714285716, 0.029296875],
                         [0.13853236607142858, 0.10407366071428571]]
 
-        self.load_dataset()
+        self.dataset_path = self.config.udacity_dataset_path()
+        self.annotation_path = os.path.join(self.dataset_path, 'labels.csv')
 
-        # self.load_dataset_from_pickle('udacity_dataset_500.pkl')
-        # self.generate_tfrecords(self.train_df, type='train')
-        # self.generate_tfrecords(self.test_df, type='test')
+        #self.load_dataset()
 
-    def load_dataset_from_pickle(self, path):
-        df = self.load_pickle(path)
+    def load_annotation_df(self):
 
-        train_df, test_df = train_test_split(df, test_size=self.config.test_size())
-
-        self.set_train_df(train_df)
-        self.set_test_df(test_df)
-
-    def load_dataset(self):
-        df = self.load_udacity_dataset()
-
-        train_df, test_df = train_test_split(df, test_size=self.config.test_size(), random_state=42)
-
-        self.set_train_df(train_df)
-        self.set_test_df(test_df)
-
-    def load_udacity_dataset(self):
-
-        print(f'Loading {self.config.dataset_name()} dataset...')
-        dataset_path = self.config.dataset_path() + '/labels.csv'
-
-        with open(dataset_path, 'r') as f:
+        with open(self.annotation_path, 'r') as f:
             data = f.readlines()
         data = [item.split() for item in data]
 
-        return self.create_labels_dataframe(data)
+        records = []
 
-    def create_labels_dataframe(self, data):
+        for data_row in data:
+            image_filename = data_row[0]
+            # TODO: investigate if all has this shape or load directly from the image
+            image_shape_w = 1920
+            image_shape_h = 1080
+            image_shape_d = 3
 
-        df = pd.DataFrame()
+            x_min = data_row[1]
+            y_min = data_row[2]
+            x_max = data_row[3]
+            y_max = data_row[4]
 
-        frames = []
-        x_min = []
-        y_min = []
-        x_max = []
-        y_max = []
-        occlusions = []
-        labels = []
+            object_class = data_row[6]
+            object_class = object_class.replace('\"', '')
 
-        for data_row in data[0:500]:
-            frames.append(data_row[0])
-            x_min.append(data_row[1])
-            y_min.append(data_row[2])
-            x_max.append(data_row[3])
-            y_max.append(data_row[4])
-            occlusions.append(data_row[5])
+            record = [image_filename, image_shape_w, image_shape_h, image_shape_d,
+                      x_min, y_min, x_max, y_max,
+                      object_class, 'udacity']
+            records.append(record)
 
-            label = data_row[6]
-            label = label.replace('\"', '')
-            labels.append(label)
+        df = pd.DataFrame(records, columns=['image_filename', 'image_w', 'image_h', 'image_d',
+                                            'x_min', 'y_min', 'x_max', 'y_max',
+                                            'class', 'dataset_name'])
 
-        df['frame'] = frames
-        df['frame'] = df['frame'].astype(str)
-
-        df['x_min'] = x_min
+        df['image_filename'] = df['image_filename'].astype(str)
+        df['image_w'] = df['image_w'].astype(np.float16)
+        df['image_h'] = df['image_h'].astype(np.float16)
+        df['image_d'] = df['image_d'].astype(np.float16)
         df['x_min'] = df['x_min'].astype(np.float16)
-
-        df['y_min'] = y_min
         df['y_min'] = df['y_min'].astype(np.float16)
-
-        df['x_max'] = x_max
         df['x_max'] = df['x_max'].astype(np.float16)
-
-        df['y_max'] = y_max
         df['y_max'] = df['y_max'].astype(np.float16)
-
-        df['occlusion'] = occlusions
-        df['occlusion'] = df['occlusion'].astype(bool)
-
-        df['label'] = labels
-        df['label'] = df['label'].astype(str)
-        df['label'] = df['label'].astype('category')
-
-        df_dummies = pd.get_dummies(df['label'], prefix='category')
-        df = pd.concat([df, df_dummies], axis=1)
-
-        self.df_true = df
-
-        return self.yolo_dataset_format(df)
-
-    def yolo_dataset_format(self, dataset):
-
-        # YOLO: Input image: 448x448, output: 7x7x(B*5 + num_classes)
-
-        # yolo parameters
-        num_classes = self.config.num_classes()
-        yolo_image_width = self.config.image_width()
-        yolo_image_height = self.config.image_height()
-
-        if yolo_image_width != yolo_image_height:
-            raise Exception('YOLO supports images that are rectangles, if you don\'t like, try to change it...')
-
-        image_size = int(yolo_image_width)
-        num_grids = self.config.grid_size()
-        cell_size = int(image_size/num_grids)
-        num_anchors = len(self.anchors)
-
-        df = pd.DataFrame()
-
-        labels = []
-        images = []
-
-        # TODO: SIMPLIFY AND CREATE FUNCS
-        for frame, boxes in tqdm(dataset.groupby(['frame'])):
-            # load images
-            img = image_utils.load_img(self.config.dataset_path(), frame)
-            original_image_shape = img.shape
-
-            # resize image to yolo wxh
-            resized_img = image_utils.resize_image(img, self.config.image_height(), self.config.image_height())
-            resized_image_shape = resized_img.shape
-
-            images.append(resized_img)
-
-            # create zeroed out yolo label
-            label = np.zeros(shape=(num_grids, num_grids, num_anchors, 5 + num_classes))
-
-            for box in boxes.itertuples(index=None, name=None):
-
-                # calculate size ratios, img - (h, w, 3)
-                width_ratio = resized_image_shape[1]/original_image_shape[1]
-                height_ratio = resized_image_shape[0]/original_image_shape[0]
-
-                # resize cords
-                x_min, x_max = width_ratio * float(box[1]), width_ratio * float(box[3])
-                y_min, y_max = height_ratio * float(box[2]), height_ratio * float(box[4])
-
-                #print(f'{x_min}, {y_min}, {x_max}, {y_max}')
-
-                #image_utils.plot_img(image_utils.add_bb_to_img(resized_img, int(x_min), int(y_min), int(x_max), int(y_max)))
-
-                if (x_max < x_min or y_max < y_min):
-                    raise Exception('Invalid groud truth data, Max < Min')
-
-                # convert to x, y, w, h
-                x = (x_min + x_max)/2
-                y = (y_min + y_max)/2
-                w = x_max - x_min
-                h = y_max - y_min
-
-                # make x, y relative to its cell
-                origin_box_x = int(x / cell_size) * cell_size
-                origin_box_y = int(y / cell_size) * cell_size
-
-                cell_x = (x - origin_box_x) / cell_size
-                cell_y = (y - origin_box_y) / cell_size
-
-                # cell index
-                g_x, g_y = int(origin_box_x / cell_size), int(origin_box_y / cell_size)
-
-                # class data
-                one_hot = box[7:]
-
-                # x_min = int( ((cell_x * 64) + g_x * 64) - w/2)
-                # y_min = int( ((cell_y * 64) + g_y * 64) - h/2)
-                #
-                # x_max = int( ((cell_x * 64) + g_x * 64) + w/2)
-                # y_max = int( ((cell_y * 64) + g_y * 64) + h/2)
-
-                #image_utils.plot_img(image_utils.add_bb_to_img(resized_img, x_min, y_min, x_max, y_max))
-
-                for i, (rel_anchor_width, rel_anchor_height) in enumerate(self.anchors):
-
-                    # calculate w,h in respect to anchors size
-                    a_w = w / (rel_anchor_width * image_size)
-                    a_h = h / (rel_anchor_height * image_size)
-
-                    label[g_x, g_y, i, :] = np.concatenate((cell_x, cell_y, a_w, a_h, 1, one_hot), axis=None)
-
-                    #print(f'{cell_x}, {cell_y}, {a_w}, {a_h}')
-
-                    x_min = int((((cell_x*cell_size) + g_x*cell_size) - (a_w * (rel_anchor_width * image_size)/2)))
-                    y_min = int((((cell_y*cell_size) + g_y*cell_size) - (a_h * (rel_anchor_height * image_size)/2)))
-
-                    x_max = int((((cell_x*cell_size) + g_x*cell_size) + (a_w * (rel_anchor_width * image_size)/2)))
-                    y_max = int((((cell_y*cell_size) + g_y*cell_size) + (a_h * (rel_anchor_height * image_size)/2)))
-
-                    #print(f'{x_min}, {y_min}, {x_max}, {y_max}')
-
-                    #image_utils.plot_img(image_utils.add_bb_to_img(resized_img, x_min, y_min, x_max, y_max))
-
-
-            labels.append(label)
-
-            # x_min = int((x - w/2)*448)
-            # y_min = int((y - h/2)*448)
-            #
-            # x_max = int((x + w/2)*448)
-            # y_max = int((y + h/2)*448)
-            #
-            # image_utils.plot_img(image_utils.add_bb_to_img(img, x_min, y_min, x_max, y_max))
-
-        df['image'] = images
-        df['label'] = labels
-
-        self.save_to_pickle(df)
+        df['class'] = df['class'].astype(str)
+        df['class'] = df['class'].astype('category')
+        df['dataset_name'] = df['dataset_name'].astype(str)
 
         return df
 
-    def generate_tfrecords(self, df, type='train'):
-
-        images = np.array(df['image'].values.tolist(), dtype=np.float32)
-        labels = np.array(df['label'].values.tolist(), dtype=np.float32)
-
-        with tf.python_io.TFRecordWriter(f'{self.config.root_dataset()}/udacity_{type}.tfrecords') as writer:
-
-            for image, labels in tqdm(zip(images, labels)):
-                encoded_image = cv2.imencode('.jpg', image)[1].tostring()
-
-                # flat_labels = labels.flatten()
-
-                example = tf.train.Example(features=tf.train.Features(
-                    feature={
-                        'image': tf.train.Feature(bytes_list=tf.train.BytesList(value=[tf.compat.as_bytes(encoded_image)])),
-                        'labels': tf.train.Feature(bytes_list=tf.train.BytesList(value=[labels.tostring()]))
-                        # 'labels': tf.train.Feature(float_list=tf.train.FloatList(value=flat_labels))
-                    }))
-
-                writer.write(example.SerializeToString())
-
-    def save_to_pickle(self, df):
-        df.to_pickle('udacity_dataset_500.pkl')
-
-    def load_pickle(self, path):
-        return pd.read_pickle(path)
+    # # TODO: delete after check if working
+    # def _yolo_preprocessing(self, dataset):
+    #
+    #     # yolo parameters
+    #     num_classes = self.config.num_classes()
+    #     yolo_image_width = self.config.image_width()
+    #     yolo_image_height = self.config.image_height()
+    #
+    #     image_size = int(yolo_image_width)
+    #     num_grids = self.config.grid_size()
+    #     cell_size = int(image_size/num_grids)
+    #     num_anchors = len(self.anchors)
+    #
+    #     df = pd.DataFrame()
+    #
+    #     labels = []
+    #     images = []
+    #
+    #     # TODO: SIMPLIFY AND CREATE FUNCS
+    #     for frame, boxes in tqdm(dataset.groupby(['frame'])):
+    #         # load images
+    #         img = image_utils.load_img(self.config.dataset_path(), frame)
+    #         original_image_shape = img.shape
+    #
+    #         # resize image to yolo wxh
+    #         resized_img = image_utils.resize_image(img, self.config.image_height(), self.config.image_height())
+    #         resized_image_shape = resized_img.shape
+    #
+    #         images.append(resized_img)
+    #
+    #         # create zeroed out yolo label
+    #         label = np.zeros(shape=(num_grids, num_grids, num_anchors, 5 + num_classes))
+    #
+    #         for box in boxes.itertuples(index=None, name=None):
+    #
+    #             # calculate size ratios, img - (h, w, 3)
+    #             width_ratio = resized_image_shape[1]/original_image_shape[1]
+    #             height_ratio = resized_image_shape[0]/original_image_shape[0]
+    #
+    #             # resize cords
+    #             x_min, x_max = width_ratio * float(box[1]), width_ratio * float(box[3])
+    #             y_min, y_max = height_ratio * float(box[2]), height_ratio * float(box[4])
+    #
+    #             #print(f'{x_min}, {y_min}, {x_max}, {y_max}')
+    #
+    #             #image_utils.plot_img(image_utils.add_bb_to_img(resized_img, int(x_min), int(y_min), int(x_max), int(y_max)))
+    #
+    #             if (x_max < x_min or y_max < y_min):
+    #                 raise Exception('Invalid groud truth data, Max < Min')
+    #
+    #             # convert to x, y, w, h
+    #             x = (x_min + x_max)/2
+    #             y = (y_min + y_max)/2
+    #             w = x_max - x_min
+    #             h = y_max - y_min
+    #
+    #             # make x, y relative to its cell
+    #             origin_box_x = int(x / cell_size) * cell_size
+    #             origin_box_y = int(y / cell_size) * cell_size
+    #
+    #             cell_x = (x - origin_box_x) / cell_size
+    #             cell_y = (y - origin_box_y) / cell_size
+    #
+    #             # cell index
+    #             g_x, g_y = int(origin_box_x / cell_size), int(origin_box_y / cell_size)
+    #
+    #             # class data
+    #             one_hot = box[7:]
+    #
+    #             # x_min = int( ((cell_x * 64) + g_x * 64) - w/2)
+    #             # y_min = int( ((cell_y * 64) + g_y * 64) - h/2)
+    #             #
+    #             # x_max = int( ((cell_x * 64) + g_x * 64) + w/2)
+    #             # y_max = int( ((cell_y * 64) + g_y * 64) + h/2)
+    #
+    #             #image_utils.plot_img(image_utils.add_bb_to_img(resized_img, x_min, y_min, x_max, y_max))
+    #
+    #             for i, (rel_anchor_width, rel_anchor_height) in enumerate(self.anchors):
+    #
+    #                 # calculate w,h in respect to anchors size
+    #                 a_w = w / (rel_anchor_width * image_size)
+    #                 a_h = h / (rel_anchor_height * image_size)
+    #
+    #                 label[g_x, g_y, i, :] = np.concatenate((cell_x, cell_y, a_w, a_h, 1, one_hot), axis=None)
+    #
+    #                 #print(f'{cell_x}, {cell_y}, {a_w}, {a_h}')
+    #
+    #                 x_min = int((((cell_x*cell_size) + g_x*cell_size) - (a_w * (rel_anchor_width * image_size)/2)))
+    #                 y_min = int((((cell_y*cell_size) + g_y*cell_size) - (a_h * (rel_anchor_height * image_size)/2)))
+    #
+    #                 x_max = int((((cell_x*cell_size) + g_x*cell_size) + (a_w * (rel_anchor_width * image_size)/2)))
+    #                 y_max = int((((cell_y*cell_size) + g_y*cell_size) + (a_h * (rel_anchor_height * image_size)/2)))
+    #
+    #                 #print(f'{x_min}, {y_min}, {x_max}, {y_max}')
+    #
+    #                 #image_utils.plot_img(image_utils.add_bb_to_img(resized_img, x_min, y_min, x_max, y_max))
+    #
+    #
+    #         labels.append(label)
+    #
+    #         # x_min = int((x - w/2)*448)
+    #         # y_min = int((y - h/2)*448)
+    #         #
+    #         # x_max = int((x + w/2)*448)
+    #         # y_max = int((y + h/2)*448)
+    #         #
+    #         # image_utils.plot_img(image_utils.add_bb_to_img(img, x_min, y_min, x_max, y_max))
+    #
+    #     df['image'] = images
+    #     df['label'] = labels
+    #
+    #     self.save_to_pickle(df)
+    #
+    #     return df
+    #
+    # def generate_tfrecords(self, df, type='train'):
+    #
+    #     images = np.array(df['image'].values.tolist(), dtype=np.float32)
+    #     labels = np.array(df['label'].values.tolist(), dtype=np.float32)
+    #
+    #     with tf.python_io.TFRecordWriter(f'{self.config.root_dataset()}/udacity_{type}.tfrecords') as writer:
+    #
+    #         for image, labels in tqdm(zip(images, labels)):
+    #             encoded_image = cv2.imencode('.jpg', image)[1].tostring()
+    #
+    #             # flat_labels = labels.flatten()
+    #
+    #             example = tf.train.Example(features=tf.train.Features(
+    #                 feature={
+    #                     'image': tf.train.Feature(bytes_list=tf.train.BytesList(value=[tf.compat.as_bytes(encoded_image)])),
+    #                     'labels': tf.train.Feature(bytes_list=tf.train.BytesList(value=[labels.tostring()]))
+    #                     # 'labels': tf.train.Feature(float_list=tf.train.FloatList(value=flat_labels))
+    #                 }))
+    #
+    #             writer.write(example.SerializeToString())
+    #
+    # def save_to_pickle(self, df):
+    #     df.to_pickle('udacity_dataset_500.pkl')
+    #
+    # def load_pickle(self, path):
+    #     return pd.read_pickle(path)
 
 if __name__ == '__main__':
 

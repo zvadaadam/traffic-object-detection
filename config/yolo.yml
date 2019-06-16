@@ -1,0 +1,45 @@
+info:
+  model_name: YOLO Object Detection
+dataset:
+  name: &dataset_name Udacity+RoVit
+  root_dataset: &root_dataset /dataset
+  dataset_path: /dataset/all_dataset
+  tfrecords_train_path: !join [*root_dataset, udacity_train.tfrecords]
+  tfrecords_test_path: !join [*root_dataset, udacity_test.tfrecords]
+  test_size: 0.2
+  num_classes: 7
+udacity:
+  name: &dataset_name Udacity
+  root_dataset: &root_dataset object-dataset/
+  dataset_path: !join [*root_dataset, 'udacity']
+  tfrecords_train_path: !join [*root_dataset, udacity_train.tfrecords]
+  tfrecords_test_path: !join [*root_dataset, udacity_test.tfrecords]
+  test_size: 0.2
+  num_classes: 5
+rovit:
+  name: &dataset_name RoVIT
+  root_dataset: &root_dataset /home/zvadaada/rovit-dataset
+  dataset_path: /home/zvadaada/rovit-dataset
+  tfrecords_train_path: !join [*root_dataset, RoVIT_train.tfrecords]
+  tfrecords_test_path: !join [*root_dataset, RoVIT_test.tfrecords]
+  test_size: 0.2
+  num_classes: 7
+hyperparams:
+  batch_size: &batch_size 32
+  num_classes: 7
+  num_epoches: 100
+  num_iterations: 910
+  learning_rate: 0.01
+model:
+  model_type: &model_type YOLOv0.5
+  trained_path:  trained_models/
+  model_description: !join [*model_type, _, b, *batch_size]
+  tensorboard_path: !join [tensorboard/, *model_type, _, b, *batch_size]
+  restore_trained_model: #trained_models/yolo_v1.0/YOLOv0.4_b32-104600 #!join [trained_models/, *model_type, _, b, *batch_size, -4010]
+yolo:
+  image_height: 416
+  image_width: 416
+  grid_size: 13
+  boxes_per_cell: 3
+  num_anchors: 3
+  anchores: [[0.03984375, 0.06833333334134616], [0.11249999999999999, 0.21666666665865383], [0.40833333334134614, 0.5638888888942307]]
