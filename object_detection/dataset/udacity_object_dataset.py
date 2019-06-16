@@ -28,6 +28,8 @@ class UdacityObjectDataset(DatasetBase):
 
     def load_annotation_df(self):
 
+        print(f'Loading annotation dataset {self.config.udacity_dataset_name()}')
+
         with open(self.annotation_path, 'r') as f:
             data = f.readlines()
         data = [item.split() for item in data]

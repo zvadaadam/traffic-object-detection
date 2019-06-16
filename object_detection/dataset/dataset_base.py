@@ -22,7 +22,7 @@ class DatasetBase(object):
         raise NotImplemented
 
     def load_dataset(self):
-        print(f'Loading {self.config.dataset_name()} dataset...')
+        print(f'Preparing to load {self.config.dataset_name()} dataset...')
 
         annotation_df = self.load_annotation_df()
 
@@ -37,6 +37,10 @@ class DatasetBase(object):
         self.test_df = test_df
 
     def classes_one_hot(self, df):
+
+        df[df['class'] == 'pedestrian'] = 'person'
+        df[df['class'] == 'trafficlight'] = 'trafficLight'
+        df[df['class'] == 'trafficsignal'] = 'trafficSignal'
 
         df_dummies = pd.get_dummies(df['class'])
 

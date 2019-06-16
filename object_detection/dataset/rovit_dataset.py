@@ -34,6 +34,8 @@ class RovitDataset(DatasetBase):
 
     def load_annotation_df(self):
 
+        print(f'Loading annotation dataset {self.config.rovit_dataset_name()}')
+
         objects_records = []
         annotations_filenames = os.listdir(self.annotations_path)
         for annotations_filename in tqdm(annotations_filenames):

@@ -25,6 +25,8 @@ class AllDataset(DatasetBase):
 
         annotation_df = udacity_annotation_df.append(rovit_dataset)
 
+        annotation_df.to_csv('alldatset.csv')
+
         return annotation_df
 
 
