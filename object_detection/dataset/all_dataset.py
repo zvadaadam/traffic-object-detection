@@ -20,7 +20,7 @@ class AllDataset(DatasetBase):
 
     def load_annotation_df(self):
 
-        udacity_annotation_df = self.udacity_annotation_df.load_annotation_df()
+        udacity_annotation_df = self.udacity_dataset.load_annotation_df()
         rovit_dataset = self.rovit_dataset.load_annotation_df()
 
         annotation_df = udacity_annotation_df.append(rovit_dataset)
@@ -35,3 +35,4 @@ if __name__ == '__main__':
     config = ConfigReader()
 
     dataset = AllDataset(config)
+    dataset.load_dataset()

@@ -1,7 +1,7 @@
 info:
   model_name: YOLO Object Detection
 dataset:
-  name: &dataset_name Udacity+RoVit
+  name: &dataset_name AllDataset
   root_dataset: &root_dataset /dataset
   dataset_path: /dataset/all_dataset
   tfrecords_train_path: !join [*root_dataset, udacity_train.tfrecords]
@@ -9,19 +9,19 @@ dataset:
   test_size: 0.2
   num_classes: 7
 udacity:
-  name: &dataset_name Udacity
-  root_dataset: &root_dataset object-dataset/
-  dataset_path: !join [*root_dataset, 'udacity']
-  tfrecords_train_path: !join [*root_dataset, udacity_train.tfrecords]
-  tfrecords_test_path: !join [*root_dataset, udacity_test.tfrecords]
+  name: &udacity_dataset_name Udacity
+  root_dataset: &udacity_root_dataset object-dataset/
+  dataset_path: !join [*udacity_root_dataset, 'udacity']
+  tfrecords_train_path: !join [*udacity_root_dataset, udacity_train.tfrecords]
+  tfrecords_test_path: !join [*udacity_root_dataset, udacity_test.tfrecords]
   test_size: 0.2
   num_classes: 5
 rovit:
-  name: &dataset_name RoVIT
-  root_dataset: &root_dataset /home/zvadaada/rovit-dataset
+  name: &rovit_dataset_name RoVIT
+  root_dataset: &rovit_root_dataset /home/zvadaada/rovit-dataset
   dataset_path: /home/zvadaada/rovit-dataset
-  tfrecords_train_path: !join [*root_dataset, RoVIT_train.tfrecords]
-  tfrecords_test_path: !join [*root_dataset, RoVIT_test.tfrecords]
+  tfrecords_train_path: !join [*rovit_root_dataset, RoVIT_train.tfrecords]
+  tfrecords_test_path: !join [*rovit_root_dataset, RoVIT_test.tfrecords]
   test_size: 0.2
   num_classes: 7
 hyperparams:

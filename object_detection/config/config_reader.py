@@ -9,7 +9,7 @@ def join(loader, node):
 
 class ConfigReader(object):
 
-    def __init__(self, config_path='/Users/adam.zvada/Documents/Dev/object-detection/config/test.yml'):
+    def __init__(self, config_path='/Users/adam.zvada/Documents/Dev/object-detection/config/yolo.yml'):
 
         self.ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
