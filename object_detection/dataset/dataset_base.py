@@ -38,9 +38,18 @@ class DatasetBase(object):
 
     def classes_one_hot(self, df):
 
-        df.loc[df['class'] == 'pedestrian', 'class'] = 'person'
-        df.loc[df['class'] == 'trafficlight', 'class'] = 'trafficLight'
-        df.loc[df['class'] == 'trafficsignal', 'class'] = 'trafficSignal'
+        df['class'] = df['class'].astype(str)
+
+        if (df['class'] == 'pedestrian').any():
+            df.loc[df['class'] == 'pedestrian', 'class'] = 'person'
+
+        if (df['class'] == 'trafficlight').any():
+            df.loc[df['class'] == 'trafficlight', 'class'] = 'trafficLight'
+
+        if (df['class'] == 'trafficsignal').any():
+            df.loc[df['class'] == 'trafficsignal', 'class'] = 'trafficSignal'
+
+        df['class'] = df['class'].astype('category')
 
         df_dummies = pd.get_dummies(df['class'])
 
@@ -71,6 +80,8 @@ class DatasetBase(object):
         return self.validate_df
 
     def yolo_preprocessing(self, dataset):
+
+        print('Yolo annotation preprocessing...')
 
         # yolo parameters
         num_classes = self.config.num_classes()

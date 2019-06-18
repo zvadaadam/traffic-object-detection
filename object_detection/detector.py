@@ -5,6 +5,7 @@ from object_detection.model.darknet19 import DarkNet19
 from object_detection.model.YOLO import YOLO
 from object_detection.trainer.object_trainer import ObjectTrainer
 from tensorflow.python.client import timeline
+from object_detection.dataset.all_dataset import AllDataset
 
 
 class Detector(object):
@@ -43,8 +44,36 @@ class Detector(object):
         self.model.load(self.session, model_weight_path)
 
 
-    def train(self):
-        pass
+    def init_train_mode(self, model_path):
+        # TODO: load appropriate model type from config
+        self.model = YOLO(DarkNet19(config), config)
+
+        # init computational network graph
+        self.model.build_model(mode='train')
+
+        # init tf.variables
+        init = tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())
+        self.session.run(init)
+
+        # load model weight from config
+        model_weight_path = self.config.restore_trained_model()
+        self.model.init_saver(max_to_keep=2)
+        self.model.load(self.session, model_weight_path)
+
+    def train(self, dataset):
+
+        # add additional options to trace the session execution
+        options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
+        run_metadata = tf.RunMetadata()
+
+        trainer = ObjectTrainer(self.session, self.model, dataset, self.config, options, run_metadata)
+        trainer.train()
+
+        # Create the Timeline object, and write it to a json file
+        fetched_timeline = timeline.Timeline(run_metadata.step_stats)
+        chrome_trace = fetched_timeline.generate_chrome_trace_format()
+        with open('timeline_01.json', 'w') as f:
+            f.write(chrome_trace)
 
     def predict(self, image):
 
@@ -54,18 +83,17 @@ class Detector(object):
         # increased dim because of batch size 1
         image = np.expand_dims(image, axis=0)
 
-        print(image)
-
         prediction = self.session.run(
             [self.model.detections], feed_dict={self.model.is_training: False, self.model.x: image}
         )
 
         return prediction[0]
 
-
 if __name__ == '__main__':
 
+    import os
     import datetime
+    import cv2
     import numpy as np
     from object_detection.dataset.udacity_object_dataset import UdacityObjectDataset
     from object_detection.utils import image_utils
@@ -74,35 +102,54 @@ if __name__ == '__main__':
 
 
     # config_path = '/home/zvadaada/traffic-object-detection/config/test.yml'
-    config_path = '/Users/adam.zvada/Documents/Dev/object-detection/config/yolo.yml'
+    # config_path = '/Users/adam.zvada/Documents/Dev/object-detection/config/yolo.yml'
+    config_path = '/Users/adam.zvada/Documents/Dev/object-detection/config/test.yml'
+
     config = ConfigReader(config_path)
 
+    # ------------TRAIN-----------------------
     with tf.Session() as session:
-        dataset = UdacityObjectDataset(config)
+        dataset = AllDataset(config)
         dataset.load_dataset()
-        test_df = dataset.test_dataset()
-        images = np.array(test_df['image'].values.tolist()[0:90], dtype=np.float32)
-        #label = np.array(test_df['label'].values.tolist()[0:1], dtype=np.float32)[0]
 
         detector = Detector(session, config=config)
-
-        now = datetime.datetime.now()
-        for image in images:
-            output = detector.predict(image)
-
-            img = image_utils.draw_boxes_PIL(image, output[0], output[1], output[2])
-            imshow(img)
-            plt.show()
-
-        after = datetime.datetime.now()
-        print(f'Inference Duration: {after - now}')
+        detector.train(dataset)
+    # ------------TRAIN-----------------------
 
 
-    # img = image[0] / 255
-    # img = image_utils.draw_boxes_cv(img, output[0], output[1], output[2])
-    # image_utils.plot_img(img)
-
-    # img = image[0] / 255
-    # for box in output[0]:
-    #     img = image_utils.add_bb_to_img(img, box[0], box[1], box[2], box[3])
-    # image_utils.plot_img(img)
+    # ------------PREDICTION-----------------------
+    # with tf.Session() as session:
+    #     dataset = UdacityObjectDataset(config)
+    #     dataset.load_dataset()
+    #     test_df = dataset.test_dataset()
+    #
+    #     image_filenames = test_df['image_filename'].values.tolist()[0:90]
+    #
+    #     images = []
+    #     for image_filename in image_filenames:
+    #         image = cv2.imread(os.path.join(config.udacity_dataset_path(), image_filename))
+    #         resized_img = cv2.resize(image, (config.image_width(), config.image_height()),
+    #                                  interpolation=cv2.INTER_AREA)
+    #
+    #         cv2.imshow('test', resized_img)
+    #         plt.show()
+    #
+    #         images.append(resized_img)
+    #
+    #     image = np.array(images)
+    #
+    #     #label = np.array(test_df['label'].values.tolist()[0:1], dtype=np.float32)[0]
+    #
+    #     detector = Detector(session, config=config)
+    #
+    #     now = datetime.datetime.now()
+    #     for image in images:
+    #         output = detector.predict(image)
+    #
+    #         img = image_utils.draw_boxes_PIL(image, output[0], output[1], output[2])
+    #         imshow(img)
+    #         plt.show()
+    #
+    #     after = datetime.datetime.now()
+    #     print(f'Inference Duration: {after - now}')
+    # ------------PREDICTION-----------------------

@@ -1,3 +1,4 @@
+import os
 import tensorflow as tf
 import numpy as np
 import pandas as pd
@@ -170,9 +171,24 @@ class ImageIterator(object):
 
     def normalization(self, image, label):
 
-        image = tf.cond(tf.math.reduce_max(image) > 1.0, lambda: image/255, lambda: image)
+        udacity_image_path = os.path.join(self.config.udacity_dataset_path(), image)
+        rovit_image_path = os.path.join(self.config.rovit_dataset_path(), 'JPEGImages', image)
 
-        return image, label
+        image_path = ''
+        if os.path.exists(udacity_image_path):
+            image_path = udacity_image_path
+        elif os.path.exists(rovit_image_path):
+            image_path = rovit_image_path
+        else:
+            raise Exception(f'Image {image} not found...')
+
+        img_raw = tf.read_file(image_path)
+        img = tf.image.decode_image(img_raw)
+        img = tf.image.resize_images(img, [self.config.image_width(), self.config.image_height()])
+
+        img = tf.cond(tf.math.reduce_max(img) > 1.0, lambda: img/255, lambda: img)
+
+        return img, label
 
 if __name__ == '__main__':
 
