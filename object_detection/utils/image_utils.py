@@ -53,8 +53,11 @@ def draw_boxes_cv(image, boxes, scores, classes):
 
 def draw_boxes_PIL(image, boxes, scores, classes):
 
-    cv2_im_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    image = Image.fromarray(np.uint8(cv2_im_rgb*255))
+    if np.max(image) <= 1.0:
+        image = image * 255
+
+    #cv2_im_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    image = Image.fromarray(np.uint8(image))
 
     #font = ImageFont.truetype(font='font/FiraMono-Medium.otf', size=2)
     font = ImageFont.load_default()

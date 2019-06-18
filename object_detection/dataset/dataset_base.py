@@ -38,9 +38,9 @@ class DatasetBase(object):
 
     def classes_one_hot(self, df):
 
-        df[df['class'] == 'pedestrian'] = 'person'
-        df[df['class'] == 'trafficlight'] = 'trafficLight'
-        df[df['class'] == 'trafficsignal'] = 'trafficSignal'
+        df.loc[df['class'] == 'pedestrian', 'class'] = 'person'
+        df.loc[df['class'] == 'trafficlight', 'class'] = 'trafficLight'
+        df.loc[df['class'] == 'trafficsignal', 'class'] = 'trafficSignal'
 
         df_dummies = pd.get_dummies(df['class'])
 
@@ -94,7 +94,7 @@ class DatasetBase(object):
                 # TRAFFIC OBJECT STRUTURE
                 # traffic_object = ('image_filename', 'image_w', 'image_h', 'image_d',
                 #                   'x_min', 'y_min', 'x_max', 'y_max',
-                #                   'class', <ONE-HOT-ENCODING>)
+                #                   'class', 'dataset_type',  <ONE-HOT-ENCODING>)
                 image_shape = traffic_object[1:4]
                 bbox = traffic_object[4:8]
 
@@ -122,7 +122,7 @@ class DatasetBase(object):
                 c_x, c_y = int(origin_box_x / cell_size), int(origin_box_y / cell_size)
 
                 # class data
-                one_hot = traffic_object[9:]
+                one_hot = traffic_object[10:]
 
                 for i, (rel_anchor_width, rel_anchor_height) in enumerate(self.anchors):
                     # calculate w,h in respect to anchors size

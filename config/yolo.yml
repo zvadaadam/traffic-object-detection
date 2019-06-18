@@ -7,7 +7,7 @@ dataset:
   tfrecords_train_path: !join [*root_dataset, udacity_train.tfrecords]
   tfrecords_test_path: !join [*root_dataset, udacity_test.tfrecords]
   test_size: 0.2
-  num_classes: 7
+  num_classes: 9
 udacity:
   name: &udacity_dataset_name Udacity
   root_dataset: &udacity_root_dataset object-dataset/
@@ -26,7 +26,7 @@ rovit:
   num_classes: 7
 hyperparams:
   batch_size: &batch_size 32
-  num_classes: 7
+  num_classes: 9
   num_epoches: 100
   num_iterations: 910
   learning_rate: 0.01

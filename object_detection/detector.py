@@ -29,16 +29,32 @@ class Detector(object):
         self.model.init_saver(max_to_keep=2)
         self.model.load(self.session, model_weight_path)
 
+    def init_prediction(self):
+        # init computational network graph
+        self.model.build_model()
+
+        # init tf.variables
+        init = tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())
+        self.session.run(init)
+
+        # load model weight from config
+        model_weight_path = self.config.restore_trained_model()
+        self.model.init_saver(max_to_keep=2)
+        self.model.load(self.session, model_weight_path)
+
+
     def train(self):
         pass
 
     def predict(self, image):
 
         if np.max(image) > 1.0:
-            image /= 255
+            image = image/255
 
         # increased dim because of batch size 1
         image = np.expand_dims(image, axis=0)
+
+        print(image)
 
         prediction = self.session.run(
             [self.model.detections], feed_dict={self.model.is_training: False, self.model.x: image}
@@ -58,11 +74,12 @@ if __name__ == '__main__':
 
 
     # config_path = '/home/zvadaada/traffic-object-detection/config/test.yml'
-    config_path = '/Users/adam.zvada/Documents/Dev/object-detection/config/test.yml'
+    config_path = '/Users/adam.zvada/Documents/Dev/object-detection/config/yolo.yml'
     config = ConfigReader(config_path)
 
     with tf.Session() as session:
         dataset = UdacityObjectDataset(config)
+        dataset.load_dataset()
         test_df = dataset.test_dataset()
         images = np.array(test_df['image'].values.tolist()[0:90], dtype=np.float32)
         #label = np.array(test_df['label'].values.tolist()[0:1], dtype=np.float32)[0]

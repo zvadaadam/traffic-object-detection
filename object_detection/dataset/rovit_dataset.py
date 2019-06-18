@@ -57,7 +57,6 @@ class RovitDataset(DatasetBase):
         df['class'] = df['class'].astype('category')
         df['dataset_name'] = df['dataset_name'].astype(str)
 
-
         return df
 
     def parse_annotation_file(self, filename):

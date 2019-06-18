@@ -40,7 +40,7 @@ class UdacityObjectDataset(DatasetBase):
             image_filename = data_row[0]
             # TODO: investigate if all has this shape or load directly from the image
             image_shape_w = 1920
-            image_shape_h = 1080
+            image_shape_h = 1200
             image_shape_d = 3
 
             x_min = data_row[1]
