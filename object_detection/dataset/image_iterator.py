@@ -76,12 +76,16 @@ class ImageIterator(object):
 
     def create_iterator(self, mode='train'):
 
+        if mode == 'train':
+            df = self.dataset.train_dataset()
+        else:
+            df = self.dataset.test_dataset()
+
         dataset = tf.data.Dataset.from_tensor_slices((self.model.x, self.model.y))
 
-        num_images = len(self.dataset.train_dataset())
-        dataset = dataset.map(self.normalization)
-        dataset = dataset.cache()
-        dataset = dataset.apply(tf.data.experimental.shuffle_and_repeat(buffer_size=num_images))
+        #num_images = len(df)
+        dataset = dataset.apply(tf.data.experimental.shuffle_and_repeat(buffer_size=100000))
+        dataset = dataset.map(self.preprocess_record)
         dataset = dataset.batch(self.config.batch_size(), drop_remainder=True)
         #dataset = dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
         dataset = dataset.prefetch(buffer_size=1)
@@ -92,20 +96,8 @@ class ImageIterator(object):
 
         x, y = dataset_iterator.get_next()
 
-        if mode == 'train':
-            df = self.dataset.train_dataset()
-        else:
-            df = self.dataset.test_dataset()
-
-        images = np.array(df['image'].values.tolist(), dtype=np.float32)
+        images = np.array(df['image_filename'].values.tolist())
         labels = np.array(df['label'].values.tolist())
-
-        # for i in range(0, len(images)):
-        #     img = images[i]
-        #     img = img.astype('float32')
-        #
-        #     if img.max() > 1.0:
-        #         img /= 255.0
 
         feed = {
             self.model.x: images,
@@ -169,23 +161,25 @@ class ImageIterator(object):
         print(" {:0.5f} Images/s".format(self.config.batch_size() * self.config.num_iterations() / duration))
         print(" Total time: {}s".format(end - overall_start))
 
-    def normalization(self, image, label):
+    def preprocess_record(self, image, label):
 
-        udacity_image_path = os.path.join(self.config.udacity_dataset_path(), image)
-        rovit_image_path = os.path.join(self.config.rovit_dataset_path(), 'JPEGImages', image)
+        # udacity_image_path = os.path.join(self.config.udacity_dataset_path(), image)
+        # rovit_image_path = os.path.join(self.config.rovit_dataset_path(), 'JPEGImages', image)
+        #
+        # image_path = ''
+        # if os.path.exists(udacity_image_path):
+        #     image_path = udacity_image_path
+        # elif os.path.exists(rovit_image_path):
+        #     image_path = rovit_image_path
+        # else:
+        #     raise Exception(f'Image {image} not found...')
 
-        image_path = ''
-        if os.path.exists(udacity_image_path):
-            image_path = udacity_image_path
-        elif os.path.exists(rovit_image_path):
-            image_path = rovit_image_path
-        else:
-            raise Exception(f'Image {image} not found...')
-
-        img_raw = tf.read_file(image_path)
-        img = tf.image.decode_image(img_raw)
+        # load image
+        img_raw = tf.read_file(image)
+        img = tf.image.decode_jpeg(img_raw, channels=3)
         img = tf.image.resize_images(img, [self.config.image_width(), self.config.image_height()])
 
+        # image normalization
         img = tf.cond(tf.math.reduce_max(img) > 1.0, lambda: img/255, lambda: img)
 
         return img, label

@@ -68,7 +68,7 @@ class RovitDataset(DatasetBase):
         with open(annotation_file) as fd:
             doc = xmltodict.parse(fd.read(), force_list={'object'})['annotation']
 
-        image_filename = doc['filename']
+        image_filename = os.path.join(self.image_path, doc['filename'])
         image_shape_w = doc['size']['width']
         image_shape_h = doc['size']['height']
         image_shape_d = doc['size']['depth']

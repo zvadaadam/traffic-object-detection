@@ -1,3 +1,6 @@
+import sys
+sys.path.append('/home/zvadaada/traffic-object-detection/')
+
 import tensorflow as tf
 import numpy as np
 from object_detection.config.config_reader import ConfigReader
@@ -18,17 +21,17 @@ class Detector(object):
         # TODO: load appropriate model type from config
         self.model = YOLO(DarkNet19(config), config)
 
-        # init computational network graph
-        self.model.build_model(mode=mode)
-
-        # init tf.variables
-        init = tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())
-        self.session.run(init)
-
-        # load model weight from config
-        model_weight_path = self.config.restore_trained_model()
-        self.model.init_saver(max_to_keep=2)
-        self.model.load(self.session, model_weight_path)
+        # # init computational network graph
+        # self.model.build_model(mode=mode)
+        #
+        # # init tf.variables
+        # init = tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())
+        # self.session.run(init)
+        #
+        # # load model weight from config
+        # model_weight_path = self.config.restore_trained_model()
+        # self.model.init_saver(max_to_keep=2)
+        # self.model.load(self.session, model_weight_path)
 
     def init_prediction(self):
         # init computational network graph
@@ -102,8 +105,8 @@ if __name__ == '__main__':
 
 
     # config_path = '/home/zvadaada/traffic-object-detection/config/test.yml'
-    # config_path = '/Users/adam.zvada/Documents/Dev/object-detection/config/yolo.yml'
-    config_path = '/Users/adam.zvada/Documents/Dev/object-detection/config/test.yml'
+    config_path = '/Users/adam.zvada/Documents/Dev/object-detection/config/yolo.yml'
+    # config_path = '/Users/adam.zvada/Documents/Dev/object-detection/config/test.yml'
 
     config = ConfigReader(config_path)
 
