@@ -26,7 +26,6 @@ class DatasetBase(object):
 
         annotation_df = self.load_annotation_df()
 
-        # TODO: Normalize classes
         annotation_df = self.classes_one_hot(annotation_df)
 
         preprocessed_df = self.yolo_preprocessing(annotation_df)
@@ -35,6 +34,9 @@ class DatasetBase(object):
 
         self.train_df = train_df
         self.test_df = test_df
+
+        # self.generate_tfrecords(train_df, type='train')
+        # self.generate_tfrecords(test_df, type='test')
 
     def classes_one_hot(self, df):
 
@@ -93,7 +95,9 @@ class DatasetBase(object):
         image_size = int(yolo_image_width)
         cell_size = int(image_size / num_cells)
 
-        training_data = []
+        # training_data = []
+        image_filenames = []
+        labels = []
         # TODO: SIMPLIFY AND CREATE FUNCS
         for image_filename, boxes in tqdm(dataset.groupby(['image_filename'])):
 
@@ -142,9 +146,14 @@ class DatasetBase(object):
 
                     label[c_x, c_y, i, :] = np.concatenate((cell_x, cell_y, a_w, a_h, 1, one_hot), axis=None)
 
-                training_data.append([image_filename, label])
+            # training_data.append([image_filename, label])
+            image_filenames.append(image_filename)
+            labels.append(label)
 
-        preprocessed_df = pd.DataFrame(training_data, columns=['image_filename', 'label'])
+        # preprocessed_df = pd.DataFrame(training_data, columns=['image_filename', 'label'])
+        preprocessed_df = pd.DataFrame()
+        preprocessed_df['image_filename'] = image_filenames
+        preprocessed_df['label'] = labels
 
         return preprocessed_df
 
@@ -158,7 +167,9 @@ class DatasetBase(object):
         image_filenames = np.array(df['image_filename'].values.tolist())
         labels = np.array(df['label'].values.tolist(), dtype=np.float32)
 
-        save_path = f'{self.dataset_path}/{self.config.dataset_name()}_{type}.tfrecords'
+        #print({self.config.dataset_path())
+
+        save_path = f'{self.config.dataset_path()}/{self.config.dataset_name()}_{type}.tfrecords'
         with tf.python_io.TFRecordWriter(save_path) as writer:
             for image_filename, labels in tqdm(zip(image_filenames, labels)):
                 #             img_path = os.path.join(image_path, image_filename)

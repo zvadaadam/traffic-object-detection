@@ -104,8 +104,8 @@ if __name__ == '__main__':
     import matplotlib.pyplot as plt
 
 
-    # config_path = '/home/zvadaada/traffic-object-detection/config/test.yml'
-    config_path = '/Users/adam.zvada/Documents/Dev/object-detection/config/yolo.yml'
+    config_path = '/home/zvadaada/traffic-object-detection/config/yolo.yml'
+    # config_path = '/Users/adam.zvada/Documents/Dev/object-detection/config/yolo.yml'
     # config_path = '/Users/adam.zvada/Documents/Dev/object-detection/config/test.yml'
 
     config = ConfigReader(config_path)
@@ -114,6 +114,8 @@ if __name__ == '__main__':
     with tf.Session() as session:
         dataset = AllDataset(config)
         dataset.load_dataset()
+
+        print('DONE LOADING DATASET')
 
         detector = Detector(session, config=config)
         detector.train(dataset)

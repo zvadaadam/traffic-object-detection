@@ -83,12 +83,11 @@ class ImageIterator(object):
 
         dataset = tf.data.Dataset.from_tensor_slices((self.model.x, self.model.y))
 
-        #num_images = len(df)
-        dataset = dataset.apply(tf.data.experimental.shuffle_and_repeat(buffer_size=100000))
-        dataset = dataset.map(self.preprocess_record)
+        num_images = len(df)
+        dataset = dataset.apply(tf.data.experimental.shuffle_and_repeat(buffer_size=num_images))
+        dataset = dataset.map(self.preprocess_record, num_parallel_calls=8)
         dataset = dataset.batch(self.config.batch_size(), drop_remainder=True)
-        #dataset = dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
-        dataset = dataset.prefetch(buffer_size=1)
+        dataset = dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
 
         dataset_iterator = dataset.make_initializable_iterator()
 
@@ -96,12 +95,9 @@ class ImageIterator(object):
 
         x, y = dataset_iterator.get_next()
 
-        images = np.array(df['image_filename'].values.tolist())
-        labels = np.array(df['label'].values.tolist())
-
         feed = {
-            self.model.x: images,
-            self.model.y: labels
+            self.model.x: np.asarray(df['image_filename'].values.tolist()),
+            self.model.y: np.asarray(df['label'].values.tolist(), dtype=np.float32)
         }
 
         self.session.run(dataset_iterator.initializer, feed_dict=feed)
@@ -140,6 +136,8 @@ class ImageIterator(object):
         return inputs
 
     def time_pipeline(self, dataset_iterator):
+
+        print('Running pipeline test...')
 
         import time
         overall_start = time.time()

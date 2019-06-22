@@ -72,7 +72,7 @@ class ObjectTrainer(BaseTrain):
             # increase epoche counter
             self.session.run(self.model.increment_cur_epoch_tensor)
 
-            if cur_epoch % 20 == 0:
+            if cur_epoch % 10 == 0:
                 self.model.save(self.session, write_meta_graph=True)
 
         # finale save model - creates checkpoint
@@ -94,7 +94,7 @@ class ObjectTrainer(BaseTrain):
         mean_loss = 0
         for i in range(num_iterations):
 
-            if i % 50 == 0:
+            if i % 100 == 0:
                 loss = self.train_step(train_writer, cur_epoche * num_iterations + i, merged_summaries)
             else:
                 loss = self.train_step(train_writer, cur_epoche * num_iterations + i)

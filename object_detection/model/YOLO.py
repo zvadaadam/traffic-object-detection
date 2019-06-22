@@ -33,7 +33,7 @@ class YOLO(ModelBase):
         num_anchors = self.config.num_anchors()
 
         #self.x = tf.placeholder(tf.float32, [None, image_height, image_width, 3])
-        self.x = tf.placeholder(tf.string)
+        self.x = tf.placeholder(tf.string, [None])
         self.y = tf.placeholder(tf.float32, [None, grid_size, grid_size, num_anchors, 5 + num_classes])
 
         self.is_training = tf.placeholder(tf.bool, name='is_training')
@@ -113,11 +113,12 @@ class YOLO(ModelBase):
         #             lambda: tf.constant(start_learning_rate),
         #             lambda: tf.train.polynomial_decay(start_learning_rate, self.global_step_tensor - tf.constant(300), 50, 0.0000001))
 
-        learning_rate = tf.constant(start_learning_rate)
 
-        tf.summary.scalar('learning_rate', learning_rate)
+        self.learning_rate = tf.constant(start_learning_rate)
 
-        optimizer = tf.train.AdamOptimizer(learning_rate)
+        tf.summary.scalar('learning_rate', self.learning_rate)
+
+        optimizer = tf.train.AdamOptimizer(self.learning_rate)
 
         # control_dependencies added cause of batch_norm
         update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
