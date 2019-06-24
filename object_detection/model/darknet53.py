@@ -122,7 +122,6 @@ class DarkNet53(CNNModel):
                                   stride_x=1, stride_y=1, padding='SAME', training=is_training, scope_name='conv1') # TODO: delete ACTIVATIONand BN
 
         return feature_map_1, feature_map_2, feature_map_3
-        #return feature_map_3
 
 
 

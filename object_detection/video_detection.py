@@ -31,6 +31,7 @@ class VideoDetection(object):
 
             # init YOLO detector
             detector = Detector(session, config=detection_config)
+            detector.init_prediction()
 
             video_out = self.apply_detection_on_video(detector, video_cap, video_out, detection_config)
 
@@ -83,8 +84,10 @@ class VideoDetection(object):
 
 if __name__ == '__main__':
 
-    video_path = '/Users/adam.zvada/Documents/Dev/object-detection/videos/dji.MP4'
-    detection_config_path = '/Users/adam.zvada/Documents/Dev/object-detection/config/test.yml'
+    #video_path = '/Users/adam.zvada/Documents/Dev/object-detection/videos/dji.MP4'
+    #video_path = '/Users/adam.zvada/Documents/Dev/object-detection/videos/bali.MP4'
+    video_path = '/Users/adam.zvada/Documents/Dev/object-detection/videos/bcn.MP4'
+    detection_config_path = '/Users/adam.zvada/Documents/Dev/object-detection/config/yolo.yml'
 
     print('RUNNING!')
 

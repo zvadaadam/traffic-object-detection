@@ -32,8 +32,8 @@ class YOLO(ModelBase):
         grid_size = self.config.grid_size()
         num_anchors = self.config.num_anchors()
 
-        #self.x = tf.placeholder(tf.float32, [None, image_height, image_width, 3])
-        self.x = tf.placeholder(tf.string, [None])
+        self.x = tf.placeholder(tf.float32, [None, image_height, image_width, 3])
+        #self.x = tf.placeholder(tf.string, [None])
         self.y = tf.placeholder(tf.float32, [None, grid_size, grid_size, num_anchors, 5 + num_classes])
 
         self.is_training = tf.placeholder(tf.bool, name='is_training')
@@ -286,9 +286,10 @@ class YOLO(ModelBase):
             class_label = label[..., 5:]
             class_pred = pred[..., 5:]
 
-            loss_class = mask_class * (class_pred - class_label)
-            loss_class = tf.reduce_sum(tf.square(loss_class), axis=[1, 2, 3, 4])
-            #loss_class = mask_class * tf.nn.sigmoid_cross_entropy_with_logits(labels=class_label, logits=class_pred)
+            # loss_class = mask_class * (class_pred - class_label)
+            # loss_class = tf.reduce_sum(tf.square(loss_class), axis=[1, 2, 3, 4])
+            # loss_class = mask_class * tf.nn.sigmoid_cross_entropy_with_logits(labels=class_label, logits=class_pred)
+            loss_class = mask_class * tf.losses.softmax_cross_entropy(onehot_labels=class_label, logits=class_pred)
 
             loss_class = tf.reduce_mean(loss_class)
 
@@ -314,7 +315,7 @@ class YOLO(ModelBase):
         """Filters YOLO boxes by thresholding on object and class confidence."""
 
         # Compute box scores
-        # box_scores = confidence * classes
+        box_scores = confidence * classes
 
         # index of highest box score (return vector?)
         #box_classes = tf.argmax(box_scores, axis=-1)
@@ -322,8 +323,8 @@ class YOLO(ModelBase):
         # value of the highest box score (return vector?)
         #box_class_scores = tf.reduce_max(box_scores, axis=-1)
 
-        box_classes = tf.argmax(classes, axis=-1)
-        box_class_scores = tf.reduce_max(confidence, axis=-1)
+        box_classes = tf.argmax(box_scores, axis=-1)
+        box_class_scores = tf.reduce_max(box_scores, axis=-1)
 
         prediction_mask = (box_class_scores >= threshold)
 

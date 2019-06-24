@@ -35,7 +35,7 @@ class Detector(object):
 
     def init_prediction(self):
         # init computational network graph
-        self.model.build_model()
+        self.model.build_model(mode='predict')
 
         # init tf.variables
         init = tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())

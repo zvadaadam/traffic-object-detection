@@ -2,6 +2,7 @@ import os
 import tensorflow as tf
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 from object_detection.config.config_reader import ConfigReader
 from object_detection.dataset.dataset_base import DatasetBase
 from object_detection.model.base_model import ModelBase
@@ -103,7 +104,7 @@ class ImageIterator(object):
         self.session.run(dataset_iterator.initializer, feed_dict=feed)
 
         # show data pipeline performance
-        self.time_pipeline(dataset_iterator)
+        # self.time_pipeline(dataset_iterator)
 
         return x, y, dataset_handle
 
@@ -144,8 +145,8 @@ class ImageIterator(object):
         self.session.run(dataset_iterator.get_next())
 
         start = time.time()
-        for i in range(0, self.config.num_iterations()):
-            input = self.session.run(dataset_iterator.get_next())
+        for i in tqdm(range(0, self.config.num_iterations())):
+            self.session.run(dataset_iterator.get_next())
 
             # np.set_printoptions(formatter={'float_kind': '{:f}'.format})
             # print(f'Image: {input[0]}')

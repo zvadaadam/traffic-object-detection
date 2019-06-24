@@ -120,8 +120,7 @@ class ObjectTrainer(BaseTrain):
         else:
             loss, _ = self.session.run([self.model.loss, self.model.opt],
                                        feed_dict={self.iterator.handle_placeholder: self.train_handle,
-                                                  self.model.is_training: True},
-                                       options=self.options, run_metadata=self.run_metadata)
+                                                  self.model.is_training: True})
 
         print(loss)
 
@@ -144,8 +143,7 @@ class ObjectTrainer(BaseTrain):
              self.model.loss_class,
              self.model.learning_rate],
             feed_dict={self.iterator.handle_placeholder: self.test_handle,
-                       self.model.is_training: False},
-            options=self.options, run_metadata=self.run_metadata)
+                       self.model.is_training: False})
 
         test_writer.add_summary(summary, num_iterations)
 
