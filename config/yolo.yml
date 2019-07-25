@@ -8,6 +8,14 @@ dataset:
   tfrecords_test_path: !join [*root_dataset, udacity_test.tfrecords]
   test_size: 0.2
   num_classes: 9
+bdd:
+  name: BerkeleyDD
+  root_dataset: &bdd_root_dataset /Users/adam.zvada/Documents/Dataset/BDD/
+  dataset_path: !join [*bdd_root_dataset, 'bdd100k']
+  tfrecords_train_path: !join [*bdd_root_dataset , udacity_train.tfrecords]
+  tfrecords_test_path: !join [*bdd_root_dataset , udacity_test.tfrecords]
+  test_size: 0.2
+  num_classes: 10
 udacity:
   name: &udacity_dataset_name Udacity
   root_dataset: &udacity_root_dataset object-dataset/
@@ -18,24 +26,24 @@ udacity:
   num_classes: 5
 rovit:
   name: &rovit_dataset_name RoVIT
-  root_dataset: &rovit_root_dataset /home/zvadaada/rovit-dataset
-  dataset_path: /home/zvadaada/rovit-dataset
+  root_dataset: &rovit_root_dataset dataset/  #/home/zvadaada/rovit-dataset
+  dataset_path: !join [*rovit_root_dataset, 'rovit-dataset']
   tfrecords_train_path: !join [*rovit_root_dataset, RoVIT_train.tfrecords]
   tfrecords_test_path: !join [*rovit_root_dataset, RoVIT_test.tfrecords]
   test_size: 0.2
   num_classes: 7
 hyperparams:
-  batch_size: &batch_size 1
+  batch_size: &batch_size 32
   num_classes: 9
   num_epoches: 100
   num_iterations: 910
   learning_rate: 0.01
 model:
-  model_type: &model_type YOLOv0.5
+  model_type: &model_type YOLOv0.6
   trained_path:  trained_models/
   model_description: !join [*model_type, _, b, *batch_size]
   tensorboard_path: !join [tensorboard/, *model_type, _, b, *batch_size]
-  restore_trained_model: trained_models/yolo_v1.0/YOLOv0.5_b32-426000 #!join [trained_models/, *model_type, _, b, *batch_size, -4010]
+  restore_trained_model: #trained_models/yolo_v1.0/YOLOv0.5_b32-606000 #!join [trained_models/, *model_type, _, b, *batch_size, -4010]
 yolo:
   image_height: 416
   image_width: 416

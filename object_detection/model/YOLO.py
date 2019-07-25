@@ -32,8 +32,9 @@ class YOLO(ModelBase):
         grid_size = self.config.grid_size()
         num_anchors = self.config.num_anchors()
 
-        self.x = tf.placeholder(tf.float32, [None, image_height, image_width, 3])
-        #self.x = tf.placeholder(tf.string, [None])
+        self.images = tf.placeholder(tf.float32, [None, image_height, image_width, 3])
+        self.image_paths = tf.placeholder(tf.string, [None])
+
         self.y = tf.placeholder(tf.float32, [None, grid_size, grid_size, num_anchors, 5 + num_classes])
 
         self.is_training = tf.placeholder(tf.bool, name='is_training')
@@ -59,26 +60,43 @@ class YOLO(ModelBase):
     def get_labels(self):
         return self.labels
 
+    def label_to_boxes(self):
+        """
+        Test function identity transormation
+        :return:
+        """
+        return self.eval_prediction(self.y)
+
     def build_model(self, mode='train', x=None, y=None):
 
         if mode not in ['train', 'eval', 'predict']:
             raise Exception('Unsupported mode...')
 
-        if x is None:
-            x = self.x
+        if mode == 'predict':
+            logits = self.network.build_network(self.images, self.is_training)
+        else:
+            logits = self.network.build_network(x, self.is_training)
 
-        print('Building computation graph...')
-        logits = self.network.build_network(x, self.is_training)
-        logits = self.transform_output_logits(logits)
+        # predict multiscale
+        if len(logits.get_shape()) == 6:
+            for logits_scale in logits:
+                logits = self.transform_output_logits(logits_scale)
+        else:
+            logits = self.transform_output_logits(logits)
 
         if mode == 'predict':
             self.detections = self.eval_prediction(logits)
             return
 
         if y is None:
-            y = self.y
+            raise Exception('Missing label data')
 
-        self.loss = self.yolo_loss(logits, y)
+        self.loss = 0
+        if len(logits.get_shape()) == 6:
+            for logits_scale in logits:
+                self.loss = self.loss + self.yolo_loss(logits_scale, y)
+        else:
+            self.loss = self.loss + self.yolo_loss(logits, y)
 
         # TODO: add calculation of accuracy
 
@@ -301,7 +319,8 @@ class YOLO(ModelBase):
         confidence = y_pred[..., 4:5]
         classes = y_pred[..., 5:]
 
-        batch_size = y_pred.get_shape()[0]
+        #batch_size = y_pred.get_shape()[0]
+        batch_size = self.config.batch_size()
 
         # convert to from (x,y,w,h) to (y1, x1, y2, x2) cause of nms
         boxes = self.convert_to_min_max_cord(boxes, batch_size)

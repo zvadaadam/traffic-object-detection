@@ -57,6 +57,25 @@ class RovitDataset(DatasetBase):
         df['class'] = df['class'].astype('category')
         df['dataset_name'] = df['dataset_name'].astype(str)
 
+        print(df['class'].unique())
+
+        return df
+
+    def standardize_classes(self, df):
+
+        df['class'] = df['class'].astype(str)
+
+        if (df['class'] == 'trafficsignal').any():
+            df.loc[df['class'] == 'trafficsignal', 'class'] = 'trafficSign'
+
+        if (df['class'] == 'trafficlight').any():
+            df.loc[df['class'] == 'trafficsignal', 'class'] = 'trafficLight'
+
+        if (df['class'] == 'bicycle').any():
+            df.loc[df['class'] == 'bicycle', 'class'] = 'bike'
+
+        df['class'] = df['class'].astype('category')
+
         return df
 
     def parse_annotation_file(self, filename):
@@ -91,3 +110,18 @@ class RovitDataset(DatasetBase):
             records.append(record)
 
         return records
+
+
+if __name__ == '__main__':
+
+    from object_detection.config.config_reader import ConfigReader
+
+    config = ConfigReader()
+
+    dataset = RovitDataset(config)
+
+    dataset.load_dataset()
+
+    test_df = dataset.test_dataset()
+    image_filenames = test_df['image_filename'].values.tolist()[90:190]
+

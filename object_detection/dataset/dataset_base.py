@@ -21,6 +21,9 @@ class DatasetBase(object):
     def load_annotation_df(self):
         raise NotImplemented
 
+    def standardize_classes(self, df):
+        raise NotImplemented
+
     def load_dataset(self):
         print(f'Preparing to load {self.config.dataset_name()} dataset...')
 
@@ -35,25 +38,21 @@ class DatasetBase(object):
         self.train_df = train_df
         self.test_df = test_df
 
+        print(f'Number of records in test dataset: {len(self.test_df)}')
+        print(f'Number of records in train dataset: {len(self.train_df)}')
+
         # self.generate_tfrecords(train_df, type='train')
         # self.generate_tfrecords(test_df, type='test')
 
     def classes_one_hot(self, df):
 
-        df['class'] = df['class'].astype(str)
-
-        if (df['class'] == 'pedestrian').any():
-            df.loc[df['class'] == 'pedestrian', 'class'] = 'person'
-
-        if (df['class'] == 'trafficlight').any():
-            df.loc[df['class'] == 'trafficlight', 'class'] = 'trafficLight'
-
-        if (df['class'] == 'trafficsignal').any():
-            df.loc[df['class'] == 'trafficsignal', 'class'] = 'trafficSignal'
-
-        df['class'] = df['class'].astype('category')
-
         df_dummies = pd.get_dummies(df['class'])
+
+        if self.config.num_classes() != df_dummies.shape[1]:
+            raise Exception('Number of classes does not match.')
+            # print('Added padding')
+            # df_dummies.columns = df_dummies.columns.add_categories('other')
+            # df_dummies['other'] = 0
 
         return pd.concat([df, df_dummies], axis=1)
 

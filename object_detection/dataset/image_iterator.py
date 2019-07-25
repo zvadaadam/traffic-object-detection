@@ -82,11 +82,12 @@ class ImageIterator(object):
         else:
             df = self.dataset.test_dataset()
 
-        dataset = tf.data.Dataset.from_tensor_slices((self.model.x, self.model.y))
+        dataset = tf.data.Dataset.from_tensor_slices((self.model.image_paths, self.model.y))
 
         num_images = len(df)
         dataset = dataset.apply(tf.data.experimental.shuffle_and_repeat(buffer_size=num_images))
         dataset = dataset.map(self.preprocess_record, num_parallel_calls=8)
+        dataset = dataset.map(self.image_augmentation, num_parallel_calls=8)
         dataset = dataset.batch(self.config.batch_size(), drop_remainder=True)
         dataset = dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
 
@@ -97,7 +98,7 @@ class ImageIterator(object):
         x, y = dataset_iterator.get_next()
 
         feed = {
-            self.model.x: np.asarray(df['image_filename'].values.tolist()),
+            self.model.image_paths: np.asarray(df['image_filename'].values.tolist()),
             self.model.y: np.asarray(df['label'].values.tolist(), dtype=np.float32)
         }
 
@@ -175,29 +176,59 @@ class ImageIterator(object):
 
         # load image
         img_raw = tf.read_file(image)
-        img = tf.image.decode_jpeg(img_raw, channels=3)
-        img = tf.image.resize_images(img, [self.config.image_width(), self.config.image_height()])
+        img = tf.image.decode_jpeg(img_raw, channels=3, dct_method='INTEGER_ACCURATE')
+        img = tf.image.convert_image_dtype(img, tf.float32) # image normalization
+        img = tf.image.resize_images(img, [self.config.image_width(), self.config.image_height()],
+                                     method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
 
         # image normalization
-        img = tf.cond(tf.math.reduce_max(img) > 1.0, lambda: img/255, lambda: img)
+        #img = tf.cond(tf.math.reduce_max(img) > 1.0, lambda: img/255, lambda: img)
 
         return img, label
+
+    def image_augmentation(self, image, label):
+        #image = tf.image.random_flip_left_right(image)
+
+        image = tf.image.random_brightness(image, max_delta=32.0 / 255.0)
+        image = tf.image.random_saturation(image, lower=0.5, upper=1.5)
+
+        # Make sure the image is still in [0, 1]
+        image = tf.clip_by_value(image, 0.0, 1.0)
+
+        return image, label
 
 if __name__ == '__main__':
 
     config = ConfigReader()
 
-    from object_detection.dataset.udacity_object_dataset import UdacityObjectDataset
-    dataset = UdacityObjectDataset(config)
-
+    import matplotlib.pyplot as plt
+    import cv2
+    from object_detection.model.darknet19 import DarkNet19
     from object_detection.model.YOLO import YOLO
-    model = YOLO(config)
+    from object_detection.utils import image_utils
+    model = YOLO(DarkNet19(config), config)
 
-    session = tf.Session()
+    from object_detection.dataset.rovit_dataset import RovitDataset
+    from object_detection.dataset.bdd_dataset import BddDataset
+    dataset = BddDataset(config)
+    dataset.load_dataset()
 
-    iterator = ImageIterator(session, dataset, config, model)
+    for _ in range(0, 10):
+        with tf.Session() as session:
+            iterator = ImageIterator(session, dataset, config, model)
+            # iterator.create_iterator_from_tfrecords(mode='train')
+            x, y, handler = iterator.create_iterator(mode='train')
 
-    iterator.create_iterator_from_tfrecords(mode='train')
-    iterator.create_iterator(mode='train')
+            image, label = session.run((x, y))
+            image = image[0]
 
+            print(image)
+
+            label_to_boxes = model.label_to_boxes()
+            transformed_labels = session.run(label_to_boxes, feed_dict={model.y: label})
+
+            image = image_utils.draw_boxes_PIL(image, boxes=transformed_labels[0], scores=transformed_labels[1],
+                                               classes=transformed_labels[2])
+            plt.imshow(image)
+            plt.show()
 

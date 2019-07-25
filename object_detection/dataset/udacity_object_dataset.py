@@ -72,6 +72,27 @@ class UdacityObjectDataset(DatasetBase):
         df['class'] = df['class'].astype('category')
         df['dataset_name'] = df['dataset_name'].astype(str)
 
+        print(df['class'].unique())
+
+        df = self.standardize_classes(df)
+
+        return df
+
+    def standardize_classes(self, df):
+
+        df['class'] = df['class'].astype(str)
+
+        if (df['class'] == 'pedestrian').any():
+            df.loc[df['class'] == 'pedestrian', 'class'] = 'person'
+
+        if (df['class'] == 'trafficlight').any():
+            df.loc[df['class'] == 'trafficlight', 'class'] = 'trafficLight'
+
+        # TODO: analyze how biker looks like, then leave it...
+        df.drop(df[df['class'] == 'biker'].index, inplace=True)
+
+        df['class'] = df['class'].astype('category')
+
         return df
 
     # # TODO: delete after check if working

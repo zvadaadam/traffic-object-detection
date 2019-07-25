@@ -51,14 +51,16 @@ class VideoDetection(object):
 
             if success_flag:
 
-                resized_frame = cv2.resize(frame, (detection_config.image_width(), detection_config.image_height()), interpolation=cv2.INTER_AREA)
-                #resized_frame = cv2.cvtColor(resized_frame, cv2.COLOR_BGR2RGB)  # changed colors
+                resized_frame = cv2.resize(frame, (detection_config.image_width(), detection_config.image_height()),
+                                           interpolation=cv2.INTER_LINEAR)
+                resized_frame = cv2.cvtColor(resized_frame, cv2.COLOR_BGR2RGB)  # changed colors
                 #resized_frame = cv2.cvtColor(resized_frame, cv2.COLOR_RGB2BGR)
 
                 now = datetime.datetime.now()
 
                 # apply YOLO prediction
                 cv2.imshow('test', resized_frame)
+
                 output = detector.predict(resized_frame)
                 # draw bounding boxes on image
                 detected_img = image_utils.draw_boxes_PIL(resized_frame, output[0], output[1], output[2])
@@ -81,13 +83,12 @@ class VideoDetection(object):
                 break
 
 
-
 if __name__ == '__main__':
-
-    #video_path = '/Users/adam.zvada/Documents/Dev/object-detection/videos/dji.MP4'
+    video_path = '/Users/adam.zvada/Documents/Dev/object-detection/videos/dji.MP4'
     #video_path = '/Users/adam.zvada/Documents/Dev/object-detection/videos/bali.MP4'
-    video_path = '/Users/adam.zvada/Documents/Dev/object-detection/videos/bcn.MP4'
-    detection_config_path = '/Users/adam.zvada/Documents/Dev/object-detection/config/yolo.yml'
+    #video_path = '/Users/adam.zvada/Documents/Dev/object-detection/videos/bcn.MP4'
+
+    detection_config_path = '/Users/adam.zvada/Documents/Dev/object-detection/config/test.yml'
 
     print('RUNNING!')
 

@@ -192,3 +192,5 @@ trained_models/
 imagenet-model/
 
 videos/
+/dataset/
+/object_detection/dji_detection.mp4

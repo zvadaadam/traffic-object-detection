@@ -22,6 +22,7 @@ class ConfigReader(object):
             self.dataset = config['dataset']
             self.udacity = config['udacity']
             self.rovit = config['rovit']
+            self.bdd = config['bdd']
             self.hyperparams = config['hyperparams']
             self.model = config['model']
             self.yolo = config['yolo']
@@ -116,6 +117,49 @@ class ConfigReader(object):
 
     def udacity_num_classes(self):
         return self.udacity['num_classes']
+
+        # --BERKLEY DEEP DRIVE--
+
+    def bdd_dataset_name(self):
+        return self.bdd['name']
+
+    def bdd_root_dataset(self):
+        path = self.bdd['root_dataset']
+
+        if path == None:
+            return None
+
+        return self._absolute_path(path)
+
+    def bdd_dataset_path(self):
+        path = self.bdd['dataset_path']
+
+        if path == None:
+            return None
+
+        return self._absolute_path(path)
+
+    def bdd_tfrecords_train_path(self):
+        path = self.bdd['tfrecords_train_path']
+
+        if path == None:
+            return None
+
+        return self._absolute_path(path)
+
+    def bdd_tfrecords_test_path(self):
+        path = self.rovit['tfrecords_test_path']
+
+        if path == None:
+            return None
+
+        return self._absolute_path(path)
+
+    def bdd_test_size(self):
+        return self.bdd['test_size']
+
+    def bdd_num_classes(self):
+        return self.bdd['num_classes']
 
     # --ROVIT--
 
