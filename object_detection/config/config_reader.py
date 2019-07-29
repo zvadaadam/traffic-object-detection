@@ -225,6 +225,18 @@ class ConfigReader(object):
     def anchores(self):
         return self.yolo['anchores']
 
+    def num_cells_small(self):
+        return self.yolo['num_cells_small']
+
+    def num_cells_medium(self):
+        return self.yolo['num_cells_medium']
+
+    def num_cells_large(self):
+        return self.yolo['num_cells_large']
+
+    def num_scales(self):
+        return self.yolo['num_scales']
+
     # --HYPERPARAMETERS--
 
     def feature_size(self):

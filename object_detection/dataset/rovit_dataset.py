@@ -18,9 +18,9 @@ class RovitDataset(DatasetBase):
         super(RovitDataset, self).__init__(config)
 
         # TODO: read from config
-        self.anchors = [[0.05524553571428571, 0.045619419642857144],
-                        [0.022042410714285716, 0.029296875],
-                        [0.13853236607142858, 0.10407366071428571]]
+        # self.anchors = [[0.05524553571428571, 0.045619419642857144],
+        #                 [0.022042410714285716, 0.029296875],
+        #                 [0.13853236607142858, 0.10407366071428571]]
 
         self.dataset_path = self.config.rovit_dataset_path()
         self.annotations_path = os.path.join(self.dataset_path, 'Annotations')
@@ -38,7 +38,7 @@ class RovitDataset(DatasetBase):
 
         objects_records = []
         annotations_filenames = os.listdir(self.annotations_path)
-        for annotations_filename in tqdm(annotations_filenames):
+        for annotations_filename in tqdm(annotations_filenames[:1000]):
             objects_records = objects_records + self.parse_annotation_file(annotations_filename)
 
         df = pd.DataFrame(objects_records, columns=['image_filename', 'image_w', 'image_h', 'image_d',

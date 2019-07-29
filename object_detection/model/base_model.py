@@ -28,7 +28,12 @@ class ModelBase(object):
 
         self.images = None
         self.image_paths = None
+
+        self.y_large = None
+        self.y_medium = None
+        self.y_small = None
         self.y = None
+
 
     def save(self, session, global_step=None, write_meta_graph=True):
         """

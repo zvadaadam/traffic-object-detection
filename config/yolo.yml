@@ -51,3 +51,7 @@ yolo:
   boxes_per_cell: 3
   num_anchors: 3
   anchores: [[0.03984375, 0.06833333334134616], [0.11249999999999999, 0.21666666665865383], [0.40833333334134614, 0.5638888888942307]]
+  num_scales: 3
+  num_cells_large: 13
+  num_cells_medium: 26
+  num_cells_small: 52

@@ -20,7 +20,10 @@ class YOLO(ModelBase):
 
         # TODO: read from config
         #self.anchors = [(0.1, 0.15), (0.3, 0.25), (0.4, 0.5)]
-        self.anchors = [[0.05524553571428571, 0.045619419642857144], [0.022042410714285716, 0.029296875], [0.13853236607142858, 0.10407366071428571]]
+        anchors_small = [[0.05524553571428571, 0.045619419642857144], [0.022042410714285716, 0.029296875], [0.13853236607142858, 0.10407366071428571]]
+        anchors_medium = [[0.05524553571428571, 0.045619419642857144], [0.022042410714285716, 0.029296875], [0.13853236607142858, 0.10407366071428571]]
+        anchors_large = [[0.05524553571428571, 0.045619419642857144], [0.022042410714285716, 0.029296875], [0.13853236607142858, 0.10407366071428571]]
+        self.anchors = [anchors_small, anchors_medium, anchors_large]
 
         self.init_placeholders()
 
@@ -29,13 +32,19 @@ class YOLO(ModelBase):
         image_height = self.config.image_height()
         image_width = self.config.image_width()
         num_classes = self.config.num_classes()
-        grid_size = self.config.grid_size()
         num_anchors = self.config.num_anchors()
+
+        num_cells_small = self.config.num_cells_small()
+        num_cells_medium = self.config.num_cells_medium()
+        num_cells_large = self.config.num_cells_large()
 
         self.images = tf.placeholder(tf.float32, [None, image_height, image_width, 3])
         self.image_paths = tf.placeholder(tf.string, [None])
 
-        self.y = tf.placeholder(tf.float32, [None, grid_size, grid_size, num_anchors, 5 + num_classes])
+        self.y_small = tf.placeholder(tf.float32, [None, num_cells_small, num_cells_small, num_anchors, 5 + num_classes])
+        self.y_medium = tf.placeholder(tf.float32, [None, num_cells_medium, num_cells_medium, num_anchors, 5 + num_classes])
+        self.y_large = tf.placeholder(tf.float32, [None, num_cells_large, num_cells_large, num_anchors, 5 + num_classes])
+        self.y = [self.y_large, self.y_medium, self.y_small]
 
         self.is_training = tf.placeholder(tf.bool, name='is_training')
 
@@ -62,48 +71,43 @@ class YOLO(ModelBase):
 
     def label_to_boxes(self):
         """
-        Test function identity transormation
+        Test function identity transformation
         :return:
         """
         return self.eval_prediction(self.y)
 
     def build_model(self, mode='train', x=None, y=None):
-
-        if mode not in ['train', 'eval', 'predict']:
+        # TODO: add eval option
+        if mode == 'train':
+            if x is None or y is None:
+                raise Exception('Missing input for building graph for training the model.')
+            self.build_training_model(x, y)
+        elif mode == 'predict':
+            self.build_predict_model(self.images)
+        else:
             raise Exception('Unsupported mode...')
 
-        if mode == 'predict':
-            logits = self.network.build_network(self.images, self.is_training)
-        else:
-            logits = self.network.build_network(x, self.is_training)
+    def build_training_model(self, x, y):
 
-        # predict multiscale
-        if len(logits.get_shape()) == 6:
-            for logits_scale in logits:
-                logits = self.transform_output_logits(logits_scale)
-        else:
-            logits = self.transform_output_logits(logits)
-
-        if mode == 'predict':
-            self.detections = self.eval_prediction(logits)
-            return
-
-        if y is None:
-            raise Exception('Missing label data')
+        logits = self.network.build_network(x, self.is_training)
 
         self.loss = 0
-        if len(logits.get_shape()) == 6:
-            for logits_scale in logits:
-                self.loss = self.loss + self.yolo_loss(logits_scale, y)
-        else:
-            self.loss = self.loss + self.yolo_loss(logits, y)
+        # number of anchors defined number of scales
+        for i, y_scale in enumerate(y):
+            transformed_logits = self.transform_output_logits(logits[i])
 
-        # TODO: add calculation of accuracy
+            self.loss += self.yolo_loss(predict=transformed_logits, label=y_scale, anchors=self.anchors[i])
 
-        if mode == 'train':
-            self.opt = self.optimizer(self.loss, self.config.learning_rate())
+        self.opt = self.optimizer(self.loss, self.config.learning_rate())
 
-        return
+    def build_predict_model(self, images):
+
+        logits = self.network.build_network(images, self.is_training)
+
+        # number of anchors defined number of scales
+        transformed_logits = [self.transform_output_logits(logits[i]) for i in range(self.config.num_scales())]
+
+        self.detections = self.eval_prediction(transformed_logits)
 
     def transform_output_logits(self, logits):
 
@@ -145,7 +149,7 @@ class YOLO(ModelBase):
 
         return train_op
 
-    def yolo_loss(self, predict, label, lambda_cord=5, lambda_noobj=0.5):
+    def yolo_loss(self, predict, label, anchors, lambda_cord=5, lambda_noobj=0.5):
 
         # INPUT: (?, grid_size, grid_size, num_anchors, 5 + num_classes)
 
@@ -157,7 +161,7 @@ class YOLO(ModelBase):
             tf.summary.scalar('loss_cord', loss_cord)
             tf.summary.scalar('loss_size', loss_size)
 
-            loss_obj, loss_noobj = self.confidence_loss(label, predict, lambda_noobj)
+            loss_obj, loss_noobj = self.confidence_loss(label, predict, anchors, lambda_noobj)
             self.loss_obj = loss_obj
             self.loss_noobj = loss_noobj
 
@@ -218,7 +222,7 @@ class YOLO(ModelBase):
 
         return loss_size, loss_cord
 
-    def confidence_loss(self, label, pred, lambda_obj=1, lambda_noobj=0.5):
+    def confidence_loss(self, label, pred, anchors, lambda_obj=1, lambda_noobj=0.5):
 
         with tf.name_scope('confidence'):
             mask_obj = tf.expand_dims(label[..., 4], axis=-1)
@@ -227,7 +231,7 @@ class YOLO(ModelBase):
             confidence_label = tf.expand_dims(label[..., 4], axis=-1)
             confidence_pred = tf.expand_dims(pred[..., 4], axis=-1)
 
-            iou = self.iou(label[..., 0:4], pred[..., 0:4])
+            iou = self.iou(label[..., 0:4], pred[..., 0:4], anchors)
 
             # good detections
             bad_object_detections = tf.cast(iou < 0.5, dtype=tf.float32)  # 1 - object_detections
@@ -248,7 +252,7 @@ class YOLO(ModelBase):
 
         return loss_obj, loss_noobj
 
-    def iou(self, label_box, pred_box):
+    def iou(self, label_box, pred_box, anchors):
 
         cord_pred, size_pred = tf.split(pred_box, 2, axis=-1)
         cord_true, size_true = tf.split(label_box, 2, axis=-1)
@@ -262,8 +266,8 @@ class YOLO(ModelBase):
         cord_pred = cord_pred * cell_size + grid
         cord_true = cord_true * cell_size + grid
 
-        size_pred = size_pred / self.anchors
-        size_true = size_true / self.anchors
+        size_pred = size_pred / anchors
+        size_true = size_true / anchors
 
         pred_x, pred_y = tf.split(cord_pred, 2, axis=-1)
         pred_w, pred_h = tf.split(size_pred, 2, axis=-1)

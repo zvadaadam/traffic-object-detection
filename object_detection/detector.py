@@ -1,6 +1,6 @@
 import sys
 sys.path.append('/home/zvadaada/traffic-object-detection/')
-
+import imutils
 import tensorflow as tf
 import numpy as np
 from object_detection.config.config_reader import ConfigReader
@@ -20,8 +20,8 @@ class Detector(object):
         self.mode = mode
 
         # TODO: load appropriate model type from config
-        self.model = YOLO(DarkNet19(config), config)
-        #self.model = YOLO(DarkNet53(config), config)
+        #self.model = YOLO(DarkNet19(config), config)
+        self.model = YOLO(DarkNet53(config), config)
 
         # # init computational network graph
         # self.model.build_model(mode=mode)
@@ -108,8 +108,8 @@ if __name__ == '__main__':
     import matplotlib.pyplot as plt
 
 
-    #config_path = '/home/zvadaada/traffic-object-detection/config/yolo.yml'
-    config_path = '/Users/adam.zvada/Documents/Dev/object-detection/config/yolo.yml'
+    config_path = '/home/zvadaada/traffic-object-detection/config/yolo.yml'
+    #config_path = '/Users/adam.zvada/Documents/Dev/object-detection/config/yolo.yml'
     #config_path = '/Users/adam.zvada/Documents/Dev/object-detection/config/test.yml'
 
     config = ConfigReader(config_path)
@@ -135,31 +135,36 @@ if __name__ == '__main__':
     #
     #     image_filenames = test_df['image_filename'].values.tolist()[90:190]
     #
-    #     # image_filenames = ['/Users/adam.zvada/Documents/Dev/object-detection/dataset/0.png',
-    #     #                    '/Users/adam.zvada/Documents/Dev/object-detection/dataset/1.png',
-    #     #                    '/Users/adam.zvada/Documents/Dev/object-detection/dataset/2.png',
-    #     #                    '/Users/adam.zvada/Documents/Dev/object-detection/dataset/3.png',
-    #     #                    '/Users/adam.zvada/Documents/Dev/object-detection/dataset/4.png',
-    #     #                    '/Users/adam.zvada/Documents/Dev/object-detection/dataset/5.png',
-    #     #                    '/Users/adam.zvada/Documents/Dev/object-detection/dataset/6.png',
-    #     #                    '/Users/adam.zvada/Documents/Dev/object-detection/dataset/7.png',
-    #     #                    '/Users/adam.zvada/Documents/Dev/object-detection/dataset/8.png',
-    #     #                    '/Users/adam.zvada/Documents/Dev/object-detection/dataset/9.png',
-    #     #                    '/Users/adam.zvada/Documents/Dev/object-detection/dataset/12.png',
-    #     #                    '/Users/adam.zvada/Documents/Dev/object-detection/dataset/11.png',
-    #     #                    '/Users/adam.zvada/Documents/Dev/object-detection/dataset/13.jpg',
-    #     #                    '/Users/adam.zvada/Documents/Dev/object-detection/dataset/14.jpg']
+    #     image_filenames = ['/Users/adam.zvada/Documents/Dev/object-detection/dataset/0.png',
+    #                        '/Users/adam.zvada/Documents/Dev/object-detection/dataset/1.png',
+    #                        '/Users/adam.zvada/Documents/Dev/object-detection/dataset/2.png',
+    #                        '/Users/adam.zvada/Documents/Dev/object-detection/dataset/3.png',
+    #                        '/Users/adam.zvada/Documents/Dev/object-detection/dataset/4.png',
+    #                        '/Users/adam.zvada/Documents/Dev/object-detection/dataset/5.png',
+    #                        '/Users/adam.zvada/Documents/Dev/object-detection/dataset/6.png',
+    #                        '/Users/adam.zvada/Documents/Dev/object-detection/dataset/7.png',
+    #                        '/Users/adam.zvada/Documents/Dev/object-detection/dataset/8.png',
+    #                        '/Users/adam.zvada/Documents/Dev/object-detection/dataset/9.png',
+    #                        '/Users/adam.zvada/Documents/Dev/object-detection/dataset/12.png',
+    #                        '/Users/adam.zvada/Documents/Dev/object-detection/dataset/11.png',
+    #                        '/Users/adam.zvada/Documents/Dev/object-detection/dataset/13.jpg',
+    #                        '/Users/adam.zvada/Documents/Dev/object-detection/dataset/14.jpg']
     #
     #     images = []
     #     for image_filename in image_filenames:
     #         #image = cv2.imread(os.path.join(config.udacity_dataset_path(), image_filename))
     #         image = cv2.imread(image_filename)
-    #         resized_img = cv2.resize(image, (config.image_width(), config.image_height()),
-    #                                  interpolation=cv2.INTER_NEAREST)
-    #         resized_img = cv2.cvtColor(resized_img, cv2.COLOR_BGR2RGB)  # changed colors
     #
-    #         cv2.imshow('test', resized_img)
-    #         plt.show()
+    #         resized_img = cv2.resize(image, (config.image_width(), config.image_height()),
+    #                                 interpolation=cv2.INTER_NEAREST)
+    #
+    #         # resized_img = imutils.resize(image, width=config.image_width(), height=config.image_height())
+    #
+    #         resized_img = cv2.cvtColor(resized_img, cv2.COLOR_BGR2RGB)  # changed colors
+    #         print(resized_img.shape)
+    #
+    #         # imshow(resized_img)
+    #         # plt.show()
     #
     #         images.append(resized_img)
     #

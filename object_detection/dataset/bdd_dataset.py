@@ -23,9 +23,9 @@ class BddDataset(DatasetBase):
 
         # TODO: read from config
         # TODO: calculate ancgores for bdd
-        self.anchors = [[0.05524553571428571, 0.045619419642857144],
-                        [0.022042410714285716, 0.029296875],
-                        [0.13853236607142858, 0.10407366071428571]]
+        # self.anchors = [[0.05524553571428571, 0.045619419642857144],
+        #                 [0.022042410714285716, 0.029296875],
+        #                 [0.13853236607142858, 0.10407366071428571]]
 
         self.dataset_path = self.config.bdd_dataset_path()
 
@@ -44,7 +44,7 @@ class BddDataset(DatasetBase):
 
         objects_records = []
         annotations_jsons = os.listdir(self.annotations_path)
-        for annotations_json in annotations_jsons:
+        for annotations_json in annotations_jsons[:1000]:
             filename = os.path.join(self.annotations_path, annotations_json)
             objects_records = objects_records + self.parse_annotation_filename(filename)
 

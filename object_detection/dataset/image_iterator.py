@@ -82,7 +82,9 @@ class ImageIterator(object):
         else:
             df = self.dataset.test_dataset()
 
-        dataset = tf.data.Dataset.from_tensor_slices((self.model.image_paths, self.model.y))
+        dataset = tf.data.Dataset.from_tensor_slices(
+            (self.model.image_paths, self.model.y_large, self.model.y_medium, self.model.y_small)
+        )
 
         num_images = len(df)
         dataset = dataset.apply(tf.data.experimental.shuffle_and_repeat(buffer_size=num_images))
@@ -95,11 +97,14 @@ class ImageIterator(object):
 
         dataset_handle = self.session.run(dataset_iterator.string_handle())
 
-        x, y = dataset_iterator.get_next()
+        x, y_large, y_medium, y_small = dataset_iterator.get_next()
+        y = [y_small, y_medium, y_large]
 
         feed = {
             self.model.image_paths: np.asarray(df['image_filename'].values.tolist()),
-            self.model.y: np.asarray(df['label'].values.tolist(), dtype=np.float32)
+            self.model.y_large: np.asarray(df['label_large'].values.tolist(), dtype=np.float32),
+            self.model.y_medium: np.asarray(df['label_medium'].values.tolist(), dtype=np.float32),
+            self.model.y_small: np.asarray(df['label_small'].values.tolist(), dtype=np.float32)
         }
 
         self.session.run(dataset_iterator.initializer, feed_dict=feed)
@@ -161,7 +166,7 @@ class ImageIterator(object):
         print(" {:0.5f} Images/s".format(self.config.batch_size() * self.config.num_iterations() / duration))
         print(" Total time: {}s".format(end - overall_start))
 
-    def preprocess_record(self, image, label):
+    def preprocess_record(self, image, label_large, label_medium, label_small):
 
         # udacity_image_path = os.path.join(self.config.udacity_dataset_path(), image)
         # rovit_image_path = os.path.join(self.config.rovit_dataset_path(), 'JPEGImages', image)
@@ -184,9 +189,9 @@ class ImageIterator(object):
         # image normalization
         #img = tf.cond(tf.math.reduce_max(img) > 1.0, lambda: img/255, lambda: img)
 
-        return img, label
+        return img, label_large, label_medium, label_small
 
-    def image_augmentation(self, image, label):
+    def image_augmentation(self, image, label_large, label_medium, label_small):
         #image = tf.image.random_flip_left_right(image)
 
         image = tf.image.random_brightness(image, max_delta=32.0 / 255.0)
@@ -195,7 +200,7 @@ class ImageIterator(object):
         # Make sure the image is still in [0, 1]
         image = tf.clip_by_value(image, 0.0, 1.0)
 
-        return image, label
+        return image, label_large, label_medium, label_small
 
 if __name__ == '__main__':
 

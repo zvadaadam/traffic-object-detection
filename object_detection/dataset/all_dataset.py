@@ -13,9 +13,9 @@ class AllDataset(DatasetBase):
         super(AllDataset, self).__init__(config)
 
         # TODO: load anchores from config!
-        self.anchors = [[0.035416639759615384, 0.06166667204326923],
-                        [0.10546875, 0.1958333528846154],
-                        [0.37812497064903844, 0.5361111347596154]]
+        # self.anchors = [[0.035416639759615384, 0.06166667204326923],
+        #                 [0.10546875, 0.1958333528846154],
+        #                 [0.37812497064903844, 0.5361111347596154]]
 
         # TODO: hook up dataset_names
         # TODO: add factory pattern from datasets

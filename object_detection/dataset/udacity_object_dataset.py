@@ -17,9 +17,9 @@ class UdacityObjectDataset(DatasetBase):
         super(UdacityObjectDataset, self).__init__(config)
 
         # TODO: read from config
-        self.anchors = [[0.05524553571428571, 0.045619419642857144],
-                        [0.022042410714285716, 0.029296875],
-                        [0.13853236607142858, 0.10407366071428571]]
+        # self.anchors = [[0.05524553571428571, 0.045619419642857144],
+        #                 [0.022042410714285716, 0.029296875],
+        #                 [0.13853236607142858, 0.10407366071428571]]
 
         self.dataset_path = self.config.udacity_dataset_path()
         self.annotation_path = os.path.join(self.dataset_path, 'labels.csv')
@@ -36,7 +36,7 @@ class UdacityObjectDataset(DatasetBase):
 
         records = []
 
-        for data_row in data:
+        for data_row in data[:1000]:
             image_filename = os.path.join(self.dataset_path, data_row[0])
             # TODO: investigate if all has this shape or load directly from the image
             image_shape_w = 1920
