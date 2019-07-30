@@ -20,9 +20,18 @@ class YOLO(ModelBase):
 
         # TODO: read from config
         #self.anchors = [(0.1, 0.15), (0.3, 0.25), (0.4, 0.5)]
-        anchors_small = [[0.05524553571428571, 0.045619419642857144], [0.022042410714285716, 0.029296875], [0.13853236607142858, 0.10407366071428571]]
-        anchors_medium = [[0.05524553571428571, 0.045619419642857144], [0.022042410714285716, 0.029296875], [0.13853236607142858, 0.10407366071428571]]
-        anchors_large = [[0.05524553571428571, 0.045619419642857144], [0.022042410714285716, 0.029296875], [0.13853236607142858, 0.10407366071428571]]
+        anchors_large = [[161.19999695, 226.4888916], [57.19999695, 97.06668091], [19.82500076, 63.41111755]]
+        anchors_large = np.array(anchors_large)
+        anchors_large /= self.config.image_width()
+
+        anchors_medium = [[38.56666565, 32.58666992], [17.0625, 19.5], [8.93748474, 33.27999878]]
+        anchors_medium = np.array(anchors_medium)
+        anchors_medium /= self.config.image_width()
+
+        anchors_small = [[5.6333313, 17.33332825], [9.5874939, 10.1111145], [4.0625, 7.80000305]]
+        anchors_small = np.array(anchors_small)
+        anchors_small /= self.config.image_width()
+
         self.anchors = [anchors_small, anchors_medium, anchors_large]
 
         self.init_placeholders()

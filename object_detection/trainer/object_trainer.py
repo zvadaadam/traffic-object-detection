@@ -24,8 +24,12 @@ class ObjectTrainer(BaseTrain):
 
     def dataset_iterator(self, mode='train'):
 
+        print('Init iterators...')
+
         x, y, train_handle = self.iterator.create_iterator(mode='train')
         _, _, test_handle = self.iterator.create_iterator(mode='test')
+
+        print('Done creating iterators...')
 
         # x, y, train_handle = self.iterator.create_iterator_from_tfrecords(mode='train')
         # _, test_handle = self.iterator.create_iterator_from_tfrecords(mode='test')

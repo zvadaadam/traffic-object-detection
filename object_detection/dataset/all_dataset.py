@@ -30,7 +30,7 @@ class AllDataset(DatasetBase):
         bdd_dataset = self.bdd_dataset.load_annotation_df()
 
         annotation_df = udacity_annotation_df.append(rovit_dataset)
-        annotation_df.append(bdd_dataset)
+        annotation_df = annotation_df.append(bdd_dataset)
 
         return annotation_df
 

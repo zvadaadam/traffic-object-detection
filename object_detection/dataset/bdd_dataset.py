@@ -45,6 +45,7 @@ class BddDataset(DatasetBase):
         objects_records = []
         annotations_jsons = os.listdir(self.annotations_path)
         for annotations_json in annotations_jsons[:1000]:
+        # for annotations_json in annotations_jsons:
             filename = os.path.join(self.annotations_path, annotations_json)
             objects_records = objects_records + self.parse_annotation_filename(filename)
 
@@ -63,6 +64,8 @@ class BddDataset(DatasetBase):
         df['class'] = df['class'].astype(str)
         df['class'] = df['class'].astype('category')
         df['dataset_name'] = df['dataset_name'].astype(str)
+
+        df = self.standardize_classes(df)
 
         print(df['class'].unique())
 

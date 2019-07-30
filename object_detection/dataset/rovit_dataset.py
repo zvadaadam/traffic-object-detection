@@ -38,7 +38,9 @@ class RovitDataset(DatasetBase):
 
         objects_records = []
         annotations_filenames = os.listdir(self.annotations_path)
-        for annotations_filename in tqdm(annotations_filenames[:1000]):
+
+        # for annotations_filename in tqdm(annotations_filenames):
+        for annotations_filename in tqdm(annotations_filenames[1000:20000]):
             objects_records = objects_records + self.parse_annotation_file(annotations_filename)
 
         df = pd.DataFrame(objects_records, columns=['image_filename', 'image_w', 'image_h', 'image_d',
@@ -57,6 +59,8 @@ class RovitDataset(DatasetBase):
         df['class'] = df['class'].astype('category')
         df['dataset_name'] = df['dataset_name'].astype(str)
 
+        df = self.standardize_classes(df)
+
         print(df['class'].unique())
 
         return df
@@ -69,7 +73,7 @@ class RovitDataset(DatasetBase):
             df.loc[df['class'] == 'trafficsignal', 'class'] = 'trafficSign'
 
         if (df['class'] == 'trafficlight').any():
-            df.loc[df['class'] == 'trafficsignal', 'class'] = 'trafficLight'
+            df.loc[df['class'] == 'trafficlight', 'class'] = 'trafficLight'
 
         if (df['class'] == 'bicycle').any():
             df.loc[df['class'] == 'bicycle', 'class'] = 'bike'

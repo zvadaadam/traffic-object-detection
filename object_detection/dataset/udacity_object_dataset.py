@@ -72,9 +72,9 @@ class UdacityObjectDataset(DatasetBase):
         df['class'] = df['class'].astype('category')
         df['dataset_name'] = df['dataset_name'].astype(str)
 
-        print(df['class'].unique())
-
         df = self.standardize_classes(df)
+
+        print(df['class'].unique())
 
         return df
 

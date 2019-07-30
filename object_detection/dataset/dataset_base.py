@@ -18,12 +18,25 @@ class DatasetBase(object):
         self.test_df = pd.DataFrame()
         self.validate_df = pd.DataFrame()
 
-        self.anchors_small = [[0.05524553571428571, 0.045619419642857144], [0.022042410714285716, 0.029296875],
-                         [0.13853236607142858, 0.10407366071428571]]
-        self.anchors_medium = [[0.05524553571428571, 0.045619419642857144], [0.022042410714285716, 0.029296875],
-                          [0.13853236607142858, 0.10407366071428571]]
-        self.anchors_large = [[0.05524553571428571, 0.045619419642857144], [0.022042410714285716, 0.029296875],
-                         [0.13853236607142858, 0.10407366071428571]]
+        # TODO: read anchors from config
+        self.anchors_large = [[161.19999695, 226.4888916], [57.19999695, 97.06668091], [19.82500076, 63.41111755]]
+        self.anchors_large = np.array(self.anchors_large)
+        self.anchors_large /= self.config.image_width()
+
+        self.anchors_medium = [[38.56666565, 32.58666992], [17.0625, 19.5], [8.93748474, 33.27999878]]
+        self.anchors_medium = np.array(self.anchors_medium)
+        self.anchors_medium /= self.config.image_width()
+
+        self.anchors_small = [[5.6333313, 17.33332825], [9.5874939, 10.1111145], [4.0625, 7.80000305]]
+        self.anchors_small = np.array(self.anchors_small)
+        self.anchors_small /= self.config.image_width()
+
+        # self.anchors_small = [[0.05524553571428571, 0.045619419642857144], [0.022042410714285716, 0.029296875],
+        #                  [0.13853236607142858, 0.10407366071428571]]
+        # self.anchors_medium = [[0.05524553571428571, 0.045619419642857144], [0.022042410714285716, 0.029296875],
+        #                   [0.13853236607142858, 0.10407366071428571]]
+        # self.anchors_large = [[0.05524553571428571, 0.045619419642857144], [0.022042410714285716, 0.029296875],
+        #                  [0.13853236607142858, 0.10407366071428571]]
 
     def load_annotation_df(self):
         raise NotImplemented
@@ -56,7 +69,7 @@ class DatasetBase(object):
         df_dummies = pd.get_dummies(df['class'])
 
         if self.config.num_classes() != df_dummies.shape[1]:
-            #raise Exception('Number of classes does not match.')
+            raise Exception('Number of classes does not match.')
             print('Added padding')
             df_dummies.columns = df_dummies.columns.add_categories('other_1')
             df_dummies['other_1'] = 0
