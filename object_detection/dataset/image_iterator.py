@@ -181,8 +181,9 @@ class ImageIterator(object):
 
         # load image
         img_raw = tf.read_file(image)
-        img = tf.image.decode_jpeg(img_raw, channels=3, dct_method='INTEGER_ACCURATE')
-        img = tf.image.convert_image_dtype(img, tf.float32) # image normalization
+        #img_raw = tf.Print(img_raw, [image])
+        img = tf.image.decode_jpeg(img_raw, channels=3)
+        img = tf.image.convert_image_dtype(img, tf.float32)  # image normalization
         img = tf.image.resize_images(img, [self.config.image_width(), self.config.image_height()],
                                      method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
 

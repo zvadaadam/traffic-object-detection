@@ -36,10 +36,10 @@ hyperparams:
   batch_size: &batch_size 32
   num_classes: 9
   num_epoches: 30
-  num_iterations: 1000
+  num_iterations: 2500
   learning_rate: 0.001
 model:
-  model_type: &model_type YOLOv0.7
+  model_type: &model_type YOLOv0.8
   trained_path:  trained_models/
   model_description: !join [*model_type, _, b, *batch_size]
   tensorboard_path: !join [tensorboard/, *model_type, _, b, *batch_size]

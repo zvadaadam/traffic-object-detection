@@ -44,8 +44,8 @@ class BddDataset(DatasetBase):
 
         objects_records = []
         annotations_jsons = os.listdir(self.annotations_path)
-        for annotations_json in annotations_jsons[:1000]:
-        # for annotations_json in annotations_jsons:
+
+        for annotations_json in annotations_jsons:
             filename = os.path.join(self.annotations_path, annotations_json)
             objects_records = objects_records + self.parse_annotation_filename(filename)
 
@@ -105,6 +105,7 @@ class BddDataset(DatasetBase):
             print('Processing Validation')
             image_path = os.path.join(self.image_path, 'val')
 
+        #for image_annotations in tqdm(annotations[:1000]):
         for image_annotations in tqdm(annotations):
             image_filename = os.path.join(image_path, image_annotations['name'])
 

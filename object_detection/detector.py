@@ -108,8 +108,8 @@ if __name__ == '__main__':
     import matplotlib.pyplot as plt
     from tensorflow.python import debug as tf_debug
 
-    #config_path = '/home/zvadaada/traffic-object-detection/config/yolo.yml'
-    config_path = '/Users/adam.zvada/Documents/Dev/object-detection/config/yolo.yml'
+    config_path = '/home/zvadaada/traffic-object-detection/config/yolo.yml'
+    #config_path = '/Users/adam.zvada/Documents/Dev/object-detection/config/yolo.yml'
     #config_path = '/Users/adam.zvada/Documents/Dev/object-detection/config/test.yml'
 
     config = ConfigReader(config_path)
@@ -123,6 +123,13 @@ if __name__ == '__main__':
         dataset.load_dataset()
 
         print('DONE LOADING DATASET')
+
+        # import io
+        # for filename in np.asarray(dataset.train_df['image_filename'].values.tolist()):
+        #     try:
+        #         io.imread(filename)
+        #     except:
+        #         print(filename)
 
         detector = Detector(session, config=config)
         detector.train(dataset)

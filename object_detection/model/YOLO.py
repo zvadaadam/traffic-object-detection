@@ -126,7 +126,7 @@ class YOLO(ModelBase):
 
         confidences = tf.sigmoid(logits[..., 4:5])
 
-        classes = tf.nn.softmax(logits[..., 5:])
+        classes = tf.sigmoid(logits[..., 5:])
 
         return tf.concat([
             cords,
@@ -192,7 +192,7 @@ class YOLO(ModelBase):
 
         return loss
 
-    def cord_loss(self, label, pred, lambda_cord=5):
+    def cord_loss(self, label, pred, anchors, lambda_cord=5):
         # INPUT: (?, grid_size, grid_size, num_anchors, 5 + num_classes)
 
         with tf.name_scope('cord'):
@@ -207,26 +207,27 @@ class YOLO(ModelBase):
             pred_size = pred[..., 2:4]
             label_size = label[..., 2:4]
 
-            # TODO: Add punishment?
             # hack from darknet: box punishment - give higher weights to small boxes
-            box_loss_scale = 2. - (label_size[..., 0] * label_size[..., 1])
-            # box_loss_scale = tf.expand_dims(box_loss_scale, axis=-1)
+            label_size_absolute = label_size / anchors
+            box_loss_scale = 2. - (label_size_absolute[..., 0] * label_size_absolute[..., 1])
+            #box_loss_scale = tf.Print(box_loss_scale, [box_loss_scale])
+            box_loss_scale = tf.expand_dims(box_loss_scale, axis=-1)
 
             # inverting ground truth to match network output for gradient update (pred_size is transformed using exp)
-            pred_size = tf.math.log(pred_size)
-            label_size = tf.math.log(label_size)
+            pred_size = tf.math.log(tf.clip_by_value(pred_size, 1e-4, 1e4))
+            label_size = tf.math.log(tf.clip_by_value(label_size, 1e-4, 1e4))
             # numerical stability cause of using log transform
             label_size = tf.where(tf.math.is_inf(label_size), tf.zeros_like(label_size), label_size)
             pred_size = tf.where(tf.math.is_inf(pred_size), tf.zeros_like(pred_size), pred_size)
 
             # calculate loss for x,y
-            loss_cord = (cord_mask * tf.square(pred_cord - label_cord)) #* box_loss_scale
-            loss_cord = tf.reduce_sum(loss_cord, axis=[1, 2, 3, 4]) * lambda_cord # TODO: test if should delete lambda?
+            loss_cord = (cord_mask * tf.square(pred_cord - label_cord)) * box_loss_scale
+            loss_cord = tf.reduce_sum(loss_cord, axis=[1, 2, 3, 4]) #* lambda_cord #
             loss_cord = tf.reduce_mean(loss_cord)
 
             # calculate loss for w,h
-            loss_size = (cord_mask * tf.square(pred_size - label_size)) #* box_loss_scale
-            loss_size = tf.reduce_sum(loss_size, axis=[1, 2, 3, 4]) * lambda_cord # TODO: test if should delete lambda?
+            loss_size = (cord_mask * tf.square(pred_size - label_size)) * box_loss_scale
+            loss_size = tf.reduce_sum(loss_size, axis=[1, 2, 3, 4]) #* lambda_cord #
             loss_size = tf.reduce_mean(loss_size)
 
         return loss_size, loss_cord
@@ -266,11 +267,13 @@ class YOLO(ModelBase):
         cord_pred, size_pred = tf.split(pred_box, 2, axis=-1)
         cord_true, size_true = tf.split(label_box, 2, axis=-1)
 
-        cell_size = self.config.grid_size()
         grid_size = tf.shape(cord_true)[1]
+        cell_size = tf.cast(tf.constant(self.config.image_width())/grid_size, dtype=tf.float32)
+
         grid = tf.meshgrid(tf.range(grid_size), tf.range(grid_size), indexing='xy')
-        grid = tf.expand_dims(tf.stack(grid, axis=-1), axis=2) * cell_size
+        grid = tf.expand_dims(tf.stack(grid, axis=-1), axis=2)
         grid = tf.cast(grid, tf.float32)
+        grid = grid * cell_size
 
         cord_pred = cord_pred * cell_size + grid
         cord_true = cord_true * cell_size + grid
@@ -319,8 +322,7 @@ class YOLO(ModelBase):
 
             # loss_class = mask_class * (class_pred - class_label)
             # loss_class = tf.reduce_sum(tf.square(loss_class), axis=[1, 2, 3, 4])
-            # loss_class = mask_class * tf.nn.sigmoid_cross_entropy_with_logits(labels=class_label, logits=class_pred)
-            loss_class = mask_class * tf.losses.softmax_cross_entropy(onehot_labels=class_label, logits=class_pred)
+            loss_class = mask_class * tf.keras.backend.binary_crossentropy(target=class_label, output=class_pred)
 
             loss_class = tf.reduce_mean(loss_class)
 

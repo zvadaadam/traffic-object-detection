@@ -29,6 +29,7 @@ class AllDataset(DatasetBase):
         rovit_dataset = self.rovit_dataset.load_annotation_df()
         bdd_dataset = self.bdd_dataset.load_annotation_df()
 
+        #annotation_df = bdd_dataset
         annotation_df = udacity_annotation_df.append(rovit_dataset)
         annotation_df = annotation_df.append(bdd_dataset)
 
