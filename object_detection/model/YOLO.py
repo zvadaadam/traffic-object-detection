@@ -324,6 +324,7 @@ class YOLO(ModelBase):
             # loss_class = tf.reduce_sum(tf.square(loss_class), axis=[1, 2, 3, 4])
             loss_class = mask_class * tf.keras.backend.binary_crossentropy(target=class_label, output=class_pred)
 
+            loss_class = tf.reduce_sum(loss_class, axis=[1, 2, 3, 4])
             loss_class = tf.reduce_mean(loss_class)
 
         return loss_class

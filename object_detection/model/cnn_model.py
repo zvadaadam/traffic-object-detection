@@ -37,16 +37,19 @@ class CNNModel(object):
                                                   bias=bias, name=name)
 
     def conv(self, inputs, filter_height, filter_width, num_filters,
-             stride_x, stride_y, padding, training, scope_name='conv'):
+             stride_x, stride_y, padding, training, activate=True, bn=True, scope_name='conv'):
 
         with tf.variable_scope(scope_name) as scope:
 
+            # darkent uses top left padding
+            if stride_x > 1:
+                inputs = tf.keras.layers.ZeroPadding2D(((1, 0), (1, 0)))(inputs)
+                padding = 'VALID'
 
-            conv = tf.layers.Conv2D(kernel_size=(filter_height, filter_width), filters=num_filters,
-                                 strides=(stride_x, stride_y), padding=padding,
+            output = tf.layers.Conv2D(kernel_size=(filter_height, filter_width), filters=num_filters,
+                                 strides=(stride_x, stride_y), padding=padding, use_bias=False,
                                  kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
-                                 bias_initializer=tf.zeros_initializer(), activation=None)
-            output = conv.apply(inputs)
+                                 bias_initializer=tf.zeros_initializer(), activation=None)(inputs)
 
             # output = tf.contrib.layers.batch_norm(output, center=True, scale=True,
             #                                       is_training=training, renorm=True, scope='batch_norm')
@@ -60,14 +63,17 @@ class CNNModel(object):
             # output = tf.keras.layers.Conv2D(filters=num_filters, kernel_size=(filter_height, filter_width),
             #                                 strides=(stride_x, stride_y), padding=padding)(inputs)
 
-            batch_normed = tf.layers.batch_normalization(output, epsilon=0.001, scale=True,
-                                                         training=training, momentum=0.9)
+            #output = tf.layers.batch_normalization(output, epsilon=0.001, scale=True, training=training, momentum=0.9)
             # batch_normed = tf.keras.layers.BatchNormalization(momentum=0.9, renorm=True)(output, training=True)
 
             #output = tf.keras.activations.relu(batch_normed)
             #output = tf.nn.leaky_relu(batch_normed, name=scope.name, alpha=0.1)
             #output = tf.keras.layers.LeakyReLU(alpha=0.1)(batch_normed)
-            output = tf.keras.layers.LeakyReLU(alpha=0.1)(batch_normed)
+
+            if bn:
+                output = tf.keras.layers.BatchNormalization(epsilon=0.001, momentum=0.9, renorm=True)(output, training=training)
+            if activate:
+                output = tf.keras.layers.LeakyReLU(alpha=0.1)(output)
 
         print(f'Conv: {output.get_shape()}')
 

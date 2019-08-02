@@ -73,7 +73,8 @@ class DarkNet53(CNNModel):
         conv_big_obj = self.conv(conv, filter_height=3, filter_width=3, num_filters=1024, stride_x=1, stride_y=1,
                          padding='SAME', training=is_training, scope_name='conv59')
         feature_map_1 = self.conv(conv_big_obj, filter_height=1, filter_width=1, num_filters=3*(5 + self.config.num_classes()),
-                                  stride_x=1, stride_y=1, padding='SAME', training=is_training, scope_name='conv60') # TODO: delete ACTIVATIONand BN
+                                  stride_x=1, stride_y=1, padding='SAME', training=is_training, activate=False, bn=False,
+                                  scope_name='conv60')
 
         feature_map_1 = tf.reshape(feature_map_1, shape=[self.config.batch_size(),
                                                          self.config.num_cells_large(), self.config.num_cells_large(),
@@ -100,7 +101,8 @@ class DarkNet53(CNNModel):
         conv_mid_obj = self.conv(conv, filter_height=3, filter_width=3, num_filters=256, stride_x=1, stride_y=1,
                                  padding='SAME', training=is_training, scope_name='conv67')
         feature_map_2 = self.conv(conv_mid_obj, filter_height=1, filter_width=1, num_filters=3 * (5 + self.config.num_classes()),
-                                  stride_x=1, stride_y=1, padding='SAME', training=is_training, scope_name='conv68') # TODO: delete ACTIVATIONand BN
+                                  stride_x=1, stride_y=1, padding='SAME', training=is_training, activate=False, bn=False,
+                                  scope_name='conv68')
 
         feature_map_2 = tf.reshape(feature_map_2, shape=[self.config.batch_size(),
                                                          self.config.num_cells_medium(), self.config.num_cells_medium(),
@@ -128,7 +130,8 @@ class DarkNet53(CNNModel):
         conv_small_obj = self.conv(conv, filter_height=3, filter_width=3, num_filters=256, stride_x=1, stride_y=1,
                                  padding='SAME', training=is_training, scope_name='conv75')
         feature_map_3 = self.conv(conv_small_obj, filter_height=1, filter_width=1, num_filters=3 * (5 + self.config.num_classes()),
-                                  stride_x=1, stride_y=1, padding='SAME', training=is_training, scope_name='conv76') # TODO: delete ACTIVATIONand BN
+                                  stride_x=1, stride_y=1, padding='SAME', training=is_training, activate=False, bn=False,
+                                  scope_name='conv76')
 
         feature_map_3 = tf.reshape(feature_map_3, shape=[self.config.batch_size(),
                                                          self.config.num_cells_small(), self.config.num_cells_small(),
