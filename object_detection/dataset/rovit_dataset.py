@@ -40,7 +40,7 @@ class RovitDataset(DatasetBase):
         annotations_filenames = os.listdir(self.annotations_path)
 
         # for annotations_filename in tqdm(annotations_filenames):
-        for annotations_filename in tqdm(annotations_filenames[1000:10000]):
+        for annotations_filename in tqdm(annotations_filenames[1000:20000]):
             objects_records = objects_records + self.parse_annotation_file(annotations_filename)
 
         df = pd.DataFrame(objects_records, columns=['image_filename', 'image_w', 'image_h', 'image_d',

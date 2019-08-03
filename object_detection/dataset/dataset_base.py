@@ -155,6 +155,8 @@ class DatasetBase(object):
             image_shape = traffic_object[1:4]
             bbox = traffic_object[4:8]
 
+            # self.test_plot_regular_img(traffic_object[0], bbox[0], bbox[1], bbox[2], bbox[3], traffic_object[:10])
+
             # calculate size ratios, img - (w, h, 3)
             width_ratio = yolo_image_size / image_shape[0]
             height_ratio = yolo_image_size / image_shape[1]
@@ -162,6 +164,8 @@ class DatasetBase(object):
             # resize cords
             x_min, x_max = width_ratio * float(bbox[0]), width_ratio * float(bbox[2])
             y_min, y_max = height_ratio * float(bbox[1]), height_ratio * float(bbox[3])
+
+            # self.test_plot_yolo_img(traffic_object[0], x_min, y_min, x_max, y_max, traffic_object[:10])
 
             # convert to x, y, w, h
             x = (x_min + x_max) / 2
@@ -188,7 +192,39 @@ class DatasetBase(object):
 
                 label[c_x, c_y, i, :] = np.concatenate((cell_x, cell_y, a_w, a_h, 1, one_hot), axis=None)
 
+                # x_min = cell_size * (cell_x + c_x) - (a_w * rel_anchor_width * yolo_image_size)/2
+                # y_min = cell_size * (cell_y + c_y) - (a_h * rel_anchor_height * yolo_image_size)/2
+                # x_max = cell_size * (cell_x + c_x) + (a_w * rel_anchor_width * yolo_image_size)/2
+                # y_max = cell_size * (cell_y + c_y) + (a_h * rel_anchor_height * yolo_image_size)/2
+                #
+                # self.test_plot_yolo_img(traffic_object[0], x_min, y_min, x_max, y_max, traffic_object[:10])
+
         return label
+
+    def test_plot_regular_img(self, img_filename, x_min, x_max, y_min, y_max, one_hot):
+        import matplotlib.pyplot as plt
+        from object_detection.utils import image_utils
+        import cv2
+
+        image = cv2.imread(img_filename)
+
+        image = image_utils.draw_boxes_PIL(image , boxes=[(x_min, x_max, y_min, y_max)], scores=[1],
+                                           classes=one_hot)
+        plt.imshow(image)
+        plt.show()
+
+    def test_plot_yolo_img(self, img_filename, x_min, x_max, y_min, y_max, one_hot):
+        import matplotlib.pyplot as plt
+        from object_detection.utils import image_utils
+        import cv2
+
+        image = cv2.imread(img_filename)
+
+        resized_img = cv2.resize(image, (416, 416), interpolation=cv2.INTER_NEAREST)
+        image = image_utils.draw_boxes_PIL(resized_img, boxes=[(x_min, x_max, y_min, y_max)], scores=[1],
+                                           classes=one_hot)
+        plt.imshow(image)
+        plt.show()
 
     def dataset_tfrecords(self):
 

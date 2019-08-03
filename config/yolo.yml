@@ -26,7 +26,7 @@ udacity:
   num_classes: 5
 rovit:
   name: &rovit_dataset_name RoVIT
-  root_dataset: &rovit_root_dataset /home/zvadaada/ #dataset/
+  root_dataset: &rovit_root_dataset  /home/zvadaada/ #dataset/
   dataset_path: !join [*rovit_root_dataset, 'rovit-dataset']
   tfrecords_train_path: !join [*rovit_root_dataset, RoVIT_train.tfrecords]
   tfrecords_test_path: !join [*rovit_root_dataset, RoVIT_test.tfrecords]
@@ -39,11 +39,11 @@ hyperparams:
   num_iterations: 2500
   learning_rate: 0.001
 model:
-  model_type: &model_type YOLOv0.10
+  model_type: &model_type YOLOv0.11
   trained_path:  trained_models/
   model_description: !join [*model_type, _, b, *batch_size]
   tensorboard_path: !join [tensorboard/, *model_type, _, b, *batch_size]
-  restore_trained_model: #trained_models/yolo_v1.0/YOLOv0.5_b32-606000 #!join [trained_models/, *model_type, _, b, *batch_size, -4010]
+  restore_trained_model: #trained_models/yolo_v1.0/YOLOv0.10_b32-105000 #!join [trained_models/, *model_type, _, b, *batch_size, -4010]
 yolo:
   image_height: 416
   image_width: 416

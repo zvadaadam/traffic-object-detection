@@ -83,7 +83,7 @@ class ImageIterator(object):
             df = self.dataset.test_dataset()
 
         dataset = tf.data.Dataset.from_tensor_slices(
-            (self.model.image_paths, self.model.y_large, self.model.y_medium, self.model.y_small)
+            (self.model.image_paths, self.model.y_small, self.model.y_medium, self.model.y_large)
         )
 
         num_images = len(df)
@@ -97,14 +97,14 @@ class ImageIterator(object):
 
         dataset_handle = self.session.run(dataset_iterator.string_handle())
 
-        x, y_large, y_medium, y_small = dataset_iterator.get_next()
+        x, y_small, y_medium, y_large = dataset_iterator.get_next()
         y = [y_small, y_medium, y_large]
 
         feed = {
             self.model.image_paths: np.asarray(df['image_filename'].values.tolist()),
-            self.model.y_large: np.asarray(df['label_large'].values.tolist(), dtype=np.float32),
+            self.model.y_small: np.asarray(df['label_small'].values.tolist(), dtype=np.float32),
             self.model.y_medium: np.asarray(df['label_medium'].values.tolist(), dtype=np.float32),
-            self.model.y_small: np.asarray(df['label_small'].values.tolist(), dtype=np.float32)
+            self.model.y_large: np.asarray(df['label_large'].values.tolist(), dtype=np.float32),
         }
 
         self.session.run(dataset_iterator.initializer, feed_dict=feed)
@@ -166,7 +166,7 @@ class ImageIterator(object):
         print(" {:0.5f} Images/s".format(self.config.batch_size() * self.config.num_iterations() / duration))
         print(" Total time: {}s".format(end - overall_start))
 
-    def preprocess_record(self, image, label_large, label_medium, label_small):
+    def preprocess_record(self, image, label_small, label_medium, label_large):
 
         # udacity_image_path = os.path.join(self.config.udacity_dataset_path(), image)
         # rovit_image_path = os.path.join(self.config.rovit_dataset_path(), 'JPEGImages', image)
@@ -190,9 +190,9 @@ class ImageIterator(object):
         # image normalization
         #img = tf.cond(tf.math.reduce_max(img) > 1.0, lambda: img/255, lambda: img)
 
-        return img, label_large, label_medium, label_small
+        return img, label_small, label_medium, label_large
 
-    def image_augmentation(self, image, label_large, label_medium, label_small):
+    def image_augmentation(self, image, label_small, label_medium, label_large):
         #image = tf.image.random_flip_left_right(image)
 
         image = tf.image.random_brightness(image, max_delta=32.0 / 255.0)
@@ -201,7 +201,7 @@ class ImageIterator(object):
         # Make sure the image is still in [0, 1]
         image = tf.clip_by_value(image, 0.0, 1.0)
 
-        return image, label_large, label_medium, label_small
+        return image, label_small, label_medium, label_large
 
 if __name__ == '__main__':
 
@@ -210,31 +210,41 @@ if __name__ == '__main__':
     import matplotlib.pyplot as plt
     import cv2
     from object_detection.model.darknet19 import DarkNet19
+    from object_detection.model.darknet53 import DarkNet53
     from object_detection.model.YOLO import YOLO
     from object_detection.utils import image_utils
-    model = YOLO(DarkNet19(config), config)
+    #model = YOLO(DarkNet19(config), config)
+    model = YOLO(DarkNet53(config), config)
 
     from object_detection.dataset.rovit_dataset import RovitDataset
     from object_detection.dataset.bdd_dataset import BddDataset
     dataset = BddDataset(config)
     dataset.load_dataset()
 
-    for _ in range(0, 10):
+    for _ in range(0, 1):
         with tf.Session() as session:
             iterator = ImageIterator(session, dataset, config, model)
             # iterator.create_iterator_from_tfrecords(mode='train')
             x, y, handler = iterator.create_iterator(mode='train')
 
-            image, label = session.run((x, y))
-            image = image[0]
+            images, labels = session.run((x, y))
 
-            print(image)
+            # test_iou = model.test_iou()
+            # output = session.run(test_iou, feed_dict={model.test_large: labels[2], model.y_large: labels[2]})
+            # print(output)
 
+            # check bb conversion
             label_to_boxes = model.label_to_boxes()
-            transformed_labels = session.run(label_to_boxes, feed_dict={model.y: label})
+            transformed_labels = session.run(label_to_boxes, feed_dict={model.y_medium: labels[1]})
 
-            image = image_utils.draw_boxes_PIL(image, boxes=transformed_labels[0], scores=transformed_labels[1],
+            image = image_utils.draw_boxes_PIL(images[0], boxes=transformed_labels[0], scores=transformed_labels[1],
                                                classes=transformed_labels[2])
             plt.imshow(image)
             plt.show()
+
+        # for image in images:
+            #     image = image_utils.draw_boxes_PIL(image, boxes=transformed_labels[0], scores=transformed_labels[1],
+            #                                        classes=transformed_labels[2])
+            #     plt.imshow(image)
+            #     plt.show()
 

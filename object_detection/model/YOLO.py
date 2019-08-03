@@ -43,9 +43,9 @@ class YOLO(ModelBase):
         num_classes = self.config.num_classes()
         num_anchors = self.config.num_anchors()
 
-        num_cells_small = self.config.num_cells_small()
-        num_cells_medium = self.config.num_cells_medium()
-        num_cells_large = self.config.num_cells_large()
+        num_cells_small = self.config.num_cells_small()  # 52x52
+        num_cells_medium = self.config.num_cells_medium()  # 26x26
+        num_cells_large = self.config.num_cells_large()  # 13x13
 
         self.images = tf.placeholder(tf.float32, [None, image_height, image_width, 3])
         self.image_paths = tf.placeholder(tf.string, [None])
@@ -53,7 +53,8 @@ class YOLO(ModelBase):
         self.y_small = tf.placeholder(tf.float32, [None, num_cells_small, num_cells_small, num_anchors, 5 + num_classes])
         self.y_medium = tf.placeholder(tf.float32, [None, num_cells_medium, num_cells_medium, num_anchors, 5 + num_classes])
         self.y_large = tf.placeholder(tf.float32, [None, num_cells_large, num_cells_large, num_anchors, 5 + num_classes])
-        self.y = [self.y_large, self.y_medium, self.y_small]
+        self.test_large = tf.placeholder(tf.float32, [None, num_cells_large, num_cells_large, num_anchors, 5 + num_classes])
+        self.y = [self.y_small, self.y_medium, self.y_large]
 
         self.is_training = tf.placeholder(tf.bool, name='is_training')
 
@@ -83,7 +84,14 @@ class YOLO(ModelBase):
         Test function identity transformation
         :return:
         """
-        return self.eval_prediction(self.y)
+        return self.eval_prediction(self.y_medium)
+
+    def test_iou(self):
+        """
+        Test function identity transformation
+        :return:
+        """
+        return self.iou(self.y_large[..., 0:4], self.y_large[..., 0:4], self.anchors[2])
 
     def build_model(self, mode='train', x=None, y=None):
         # TODO: add eval option
@@ -221,12 +229,12 @@ class YOLO(ModelBase):
             pred_size = tf.where(tf.math.is_inf(pred_size), tf.zeros_like(pred_size), pred_size)
 
             # calculate loss for x,y
-            loss_cord = (cord_mask * tf.square(pred_cord - label_cord)) * box_loss_scale
+            loss_cord = (cord_mask * tf.square(pred_cord - label_cord)) #* box_loss_scale
             loss_cord = tf.reduce_sum(loss_cord, axis=[1, 2, 3, 4]) #* lambda_cord #
             loss_cord = tf.reduce_mean(loss_cord)
 
             # calculate loss for w,h
-            loss_size = (cord_mask * tf.square(pred_size - label_size)) * box_loss_scale
+            loss_size = (cord_mask * tf.square(pred_size - label_size)) #* box_loss_scale
             loss_size = tf.reduce_sum(loss_size, axis=[1, 2, 3, 4]) #* lambda_cord #
             loss_size = tf.reduce_mean(loss_size)
 
@@ -250,12 +258,12 @@ class YOLO(ModelBase):
             #no_objects_loss = mask_noobj * tf.square(confidence_label - (confidence_pred * bad_object_detections)) * lambda_noobj
             no_objects_loss = mask_noobj * tf.square(confidence_label - confidence_pred) * bad_object_detections * lambda_noobj
 
-            loss_noobj = tf.reduce_sum(no_objects_loss, axis=[1, 2, 3, 4]) * lambda_noobj
+            loss_noobj = tf.reduce_sum(no_objects_loss, axis=[1, 2, 3, 4])
             loss_noobj = tf.reduce_mean(loss_noobj)
 
             # DETECTED - punish wrong detections
             #objects_loss = mask_obj * tf.square((confidence_label - (confidence_pred * object_detections))) * lambda_obj
-            objects_loss = mask_obj * tf.square(confidence_label - confidence_pred) * lambda_obj
+            objects_loss = mask_obj * tf.square(confidence_label - confidence_pred) #* lambda_obj
 
             loss_obj = tf.reduce_sum(objects_loss, axis=[1, 2, 3, 4])
             loss_obj = tf.reduce_mean(loss_obj)
@@ -264,35 +272,15 @@ class YOLO(ModelBase):
 
     def iou(self, label_box, pred_box, anchors):
 
-        cord_pred, size_pred = tf.split(pred_box, 2, axis=-1)
-        cord_true, size_true = tf.split(label_box, 2, axis=-1)
+        # convert from (x, y, w, h ) to (x_min, y_min, x_max, y_max) with respect to anchors
+        label_box_minmax = self.convert_to_min_max_cord(label_box, anchors)
+        pred_box_minmax = self.convert_to_min_max_cord(pred_box, anchors)
 
-        grid_size = tf.shape(cord_true)[1]
-        cell_size = tf.cast(tf.constant(self.config.image_width())/grid_size, dtype=tf.float32)
+        pred_x_min, pred_y_min = pred_box_minmax[..., 0:1], pred_box_minmax[..., 1:2]
+        pred_x_max, pred_y_max = pred_box_minmax[..., 2:3], pred_box_minmax[..., 3:4]
 
-        grid = tf.meshgrid(tf.range(grid_size), tf.range(grid_size), indexing='xy')
-        grid = tf.expand_dims(tf.stack(grid, axis=-1), axis=2)
-        grid = tf.cast(grid, tf.float32)
-        grid = grid * cell_size
-
-        cord_pred = cord_pred * cell_size + grid
-        cord_true = cord_true * cell_size + grid
-
-        size_pred = size_pred / anchors
-        size_true = size_true / anchors
-
-        pred_x, pred_y = tf.split(cord_pred, 2, axis=-1)
-        pred_w, pred_h = tf.split(size_pred, 2, axis=-1)
-
-        true_x, true_y = tf.split(cord_true, 2, axis=-1)
-        true_w, true_h = tf.split(size_true, 2, axis=-1)
-
-        # from to (x, y, w, h) to (x_min, y_min, x_max, y_max)
-        pred_x_min, pred_y_min = pred_x - pred_w / 2, pred_y - pred_h / 2
-        pred_x_max, pred_y_max = pred_x + pred_w / 2, pred_y + pred_h / 2
-
-        true_x_min, true_y_min = true_x - true_w / 2, true_y - true_h / 2
-        true_x_max, true_y_max = true_x + true_w / 2, true_y + true_h / 2
+        true_x_min, true_y_min = label_box_minmax[..., 0:1], label_box_minmax[..., 1:2]
+        true_x_max, true_y_max = label_box_minmax[..., 2:3], label_box_minmax[..., 3:4]
 
         # get cords of intersect box
         inter_x_min = tf.maximum(pred_x_min, true_x_min)
@@ -306,7 +294,7 @@ class YOLO(ModelBase):
         true_area = (true_x_max - true_x_min) * (true_y_max - true_y_min)
         pred_area = (pred_x_max - pred_x_min) * (pred_y_max - pred_y_min)
 
-        # union of area coverd by true and pred boxes
+        # union of area covered by true and pred boxes
         union = true_area + pred_area - inter_area
 
         # adding 0.00001 for numerical stability
@@ -335,11 +323,8 @@ class YOLO(ModelBase):
         confidence = y_pred[..., 4:5]
         classes = y_pred[..., 5:]
 
-        #batch_size = y_pred.get_shape()[0]
-        batch_size = self.config.batch_size()
-
         # convert to from (x,y,w,h) to (y1, x1, y2, x2) cause of nms
-        boxes = self.convert_to_min_max_cord(boxes, batch_size)
+        boxes = self.convert_to_min_max_cord(boxes, anchors=self.anchors[1])  # TODO: support multiscale anchors!
 
         boxes, scores, classes = self.filter_boxes(boxes, confidence, classes)
 
@@ -394,27 +379,27 @@ class YOLO(ModelBase):
 
         return boxes, scores, classes
 
-    def convert_to_min_max_cord(self, boxes, batch_size):
+    def convert_to_min_max_cord(self, boxes, anchors):
 
         box_xy = boxes[..., 0:2]
         box_wh = boxes[..., 2:4]
 
         # number of grids
-        num_grids = tf.constant(self.config.grid_size())
+        num_grids = tf.shape(boxes)[1]
+        cell_size = tf.cast(tf.constant(self.config.image_width()) / num_grids, dtype=tf.float32)
 
         # create grid (B, 7, 7, A, 2) where we have the min absolute coordinates of each grid
-        grid = tf.meshgrid(tf.range(num_grids), tf.range(num_grids), indexing='ij')
-        grid = tf.stack(grid, axis=-1)
+        grid_i, grid_j = tf.meshgrid(tf.range(num_grids), tf.range(num_grids), indexing='ij')
+        grid = tf.stack([grid_i, grid_j], axis=-1)
         grid = tf.expand_dims(grid, axis=2)
-        grid = tf.tile(grid, [1, 1, len(self.anchors), 1])
+        grid = tf.tile(grid, [1, 1, len(anchors), 1])
         grid = tf.cast(grid, dtype=tf.float32)
 
-        cell_size = tf.constant(self.config.image_height()/self.config.grid_size(), dtype=tf.float32)
-        grid = tf.stack([grid] * batch_size)
+        grid = tf.stack([grid] * self.config.batch_size())  # copy the grid to every batch
 
         # calculate relative coordinates, where xy is relative to cell_sizes and wh to appropriate anchor
         box_xy = box_xy + grid
-        box_wh = (box_wh * np.array(self.anchors))
+        box_wh = (box_wh * np.array(anchors))
 
         # convert to absolute cordinates in px
         grid_length = cell_size * tf.cast(num_grids, dtype=tf.float32)
@@ -429,7 +414,7 @@ class YOLO(ModelBase):
                            box_mins[..., 1:2],   # y_min
                            box_maxes[..., 0:1],  # x_max
                            box_maxes[..., 1:2],  # y_max
-        ], axis=-1)
+                           ], axis=-1)
 
         return boxes
 
@@ -461,7 +446,7 @@ if __name__ == '__main__':
     # print(test2.eval())
 
     sess = tf.InteractiveSession()
-    config_path = '/Users/adam.zvada/Documents/Dev/object-detection/config/test.yml'
+    config_path = '/Users/adam.zvada/Documents/Dev/object-detection/config/yolo.yml'
     config = ConfigReader(config_path)
     network = CNNModel()
     yolo = YOLO(network, config)
@@ -482,7 +467,7 @@ if __name__ == '__main__':
     pred_box = tf.convert_to_tensor(b, np.float32)
 
     # test IOU
-    print(yolo.iou(label_box, pred_box).eval())
+    print(yolo.iou(label_box, pred_box, yolo.anchors[1]).eval())
 
     #print(yolo.convert_to_min_max_cord(label_box, pred_box).eval())
 
@@ -490,53 +475,53 @@ if __name__ == '__main__':
 
     # ----------------CAN BE USED FOR TESTS----------------------------
     # ---------------TEST---coordinates conversion---------------------
-    from object_detection.dataset.udacity_object_dataset import UdacityObjectDataset
-    from object_detection.dataset.image_iterator import ImageIterator
-    import sys
-    import numpy
-    numpy.set_printoptions(threshold=sys.maxsize)
-
-    sess = tf.InteractiveSession()
-
-    config_path = '/Users/adam.zvada/Documents/Dev/object-detection/config/test.yml'
-    config = ConfigReader(config_path)
-
-    network = CNNModel()
-    yolo = YOLO(network, config)
-
-    dataset = UdacityObjectDataset(ConfigReader(config_path))
-    iterator = ImageIterator(sess, yolo, dataset, ConfigReader(config_path))
-
-    input, test_handle = iterator.create_iterator(mode='train')
-
-    label = sess.run(input['y'], feed_dict={iterator.handle_placeholder: test_handle})
-
-    tf_label = tf.convert_to_tensor(label, np.float32)
-
-    for g_x in range(0,7):
-        for g_y in range(0, 7):
-            for i, (rel_anchor_width, rel_anchor_height) in enumerate(yolo.anchors):
-                cell_x = label[0][g_x][g_y][i][0]
-                cell_y = label[0][g_x][g_y][i][1]
-                a_w = label[0][g_x][g_y][i][2]
-                a_h = label[0][g_x][g_y][i][3]
-
-                label[0][g_x][g_y][i][0] = int((((cell_x * 64) + g_x * 64) - (a_w * (rel_anchor_width * 448) / 2)))
-                label[0][g_x][g_y][i][1] = int((((cell_y * 64) + g_y * 64) - (a_h * (rel_anchor_height * 448) / 2)))
-
-                label[0][g_x][g_y][i][2] = int((((cell_x * 64) + g_x * 64) + (a_w * (rel_anchor_width * 448) / 2)))
-                label[0][g_x][g_y][i][3] = int((((cell_y * 64) + g_y * 64) + (a_h * (rel_anchor_height * 448) / 2)))
-
-    print(label[0])
-
-    dataset.df_true['x_min'] = dataset.df_true['x_min'] * 448/1920
-    dataset.df_true['y_min'] = dataset.df_true['y_min'] * 448/1200
-    dataset.df_true['x_max'] = dataset.df_true['x_max'] * 448/1920
-    dataset.df_true['y_max'] = dataset.df_true['y_max'] * 448/1200
-
-    print(dataset.df_true[['x_min', 'y_min', 'x_max', 'y_max']])
-
-    print(yolo.convert_to_min_max_cord(tf_label, 8).eval()[0])
+    # from object_detection.dataset.udacity_object_dataset import UdacityObjectDataset
+    # from object_detection.dataset.image_iterator import ImageIterator
+    # import sys
+    # import numpy
+    # numpy.set_printoptions(threshold=sys.maxsize)
+    #
+    # sess = tf.InteractiveSession()
+    #
+    # config_path = '/Users/adam.zvada/Documents/Dev/object-detection/config/test.yml'
+    # config = ConfigReader(config_path)
+    #
+    # network = CNNModel()
+    # yolo = YOLO(network, config)
+    #
+    # dataset = UdacityObjectDataset(ConfigReader(config_path))
+    # iterator = ImageIterator(sess, yolo, dataset, ConfigReader(config_path))
+    #
+    # input, test_handle = iterator.create_iterator(mode='train')
+    #
+    # label = sess.run(input['y'], feed_dict={iterator.handle_placeholder: test_handle})
+    #
+    # tf_label = tf.convert_to_tensor(label, np.float32)
+    #
+    # for g_x in range(0,7):
+    #     for g_y in range(0, 7):
+    #         for i, (rel_anchor_width, rel_anchor_height) in enumerate(yolo.anchors):
+    #             cell_x = label[0][g_x][g_y][i][0]
+    #             cell_y = label[0][g_x][g_y][i][1]
+    #             a_w = label[0][g_x][g_y][i][2]
+    #             a_h = label[0][g_x][g_y][i][3]
+    #
+    #             label[0][g_x][g_y][i][0] = int((((cell_x * 64) + g_x * 64) - (a_w * (rel_anchor_width * 448) / 2)))
+    #             label[0][g_x][g_y][i][1] = int((((cell_y * 64) + g_y * 64) - (a_h * (rel_anchor_height * 448) / 2)))
+    #
+    #             label[0][g_x][g_y][i][2] = int((((cell_x * 64) + g_x * 64) + (a_w * (rel_anchor_width * 448) / 2)))
+    #             label[0][g_x][g_y][i][3] = int((((cell_y * 64) + g_y * 64) + (a_h * (rel_anchor_height * 448) / 2)))
+    #
+    # print(label[0])
+    #
+    # dataset.df_true['x_min'] = dataset.df_true['x_min'] * 448/1920
+    # dataset.df_true['y_min'] = dataset.df_true['y_min'] * 448/1200
+    # dataset.df_true['x_max'] = dataset.df_true['x_max'] * 448/1920
+    # dataset.df_true['y_max'] = dataset.df_true['y_max'] * 448/1200
+    #
+    # print(dataset.df_true[['x_min', 'y_min', 'x_max', 'y_max']])
+    #
+    # print(yolo.convert_to_min_max_cord(tf_label, 8).eval()[0])
 
     # ---------------TEST---coordinates conversion---------------------
 
