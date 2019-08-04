@@ -229,18 +229,18 @@ if __name__ == '__main__':
 
             images, labels = session.run((x, y))
 
-            # test_iou = model.test_iou()
-            # output = session.run(test_iou, feed_dict={model.test_large: labels[2], model.y_large: labels[2]})
-            # print(output)
+            test_iou = model.test_iou()
+            output = session.run(test_iou, feed_dict={model.test_large: labels[2], model.y_large: labels[2]})
+            print(output)
 
             # check bb conversion
-            label_to_boxes = model.label_to_boxes()
-            transformed_labels = session.run(label_to_boxes, feed_dict={model.y_medium: labels[1]})
-
-            image = image_utils.draw_boxes_PIL(images[0], boxes=transformed_labels[0], scores=transformed_labels[1],
-                                               classes=transformed_labels[2])
-            plt.imshow(image)
-            plt.show()
+            # label_to_boxes = model.label_to_boxes()
+            # transformed_labels = session.run(label_to_boxes, feed_dict={model.y_medium: labels[1]})
+            #
+            # image = image_utils.draw_boxes_PIL(images[0], boxes=transformed_labels[0], scores=transformed_labels[1],
+            #                                    classes=transformed_labels[2])
+            # plt.imshow(image)
+            # plt.show()
 
         # for image in images:
             #     image = image_utils.draw_boxes_PIL(image, boxes=transformed_labels[0], scores=transformed_labels[1],

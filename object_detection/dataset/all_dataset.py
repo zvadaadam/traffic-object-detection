@@ -26,12 +26,12 @@ class AllDataset(DatasetBase):
     def load_annotation_df(self):
 
         udacity_annotation_df = self.udacity_dataset.load_annotation_df()
-        rovit_dataset = self.rovit_dataset.load_annotation_df()
+        #rovit_dataset = self.rovit_dataset.load_annotation_df()
         bdd_dataset = self.bdd_dataset.load_annotation_df()
 
         #annotation_df = bdd_dataset
-        annotation_df = udacity_annotation_df.append(rovit_dataset)
-        annotation_df = annotation_df.append(bdd_dataset)
+        annotation_df = udacity_annotation_df.append(bdd_dataset)
+        #annotation_df = annotation_df.append(rovit_dataset)
 
         return annotation_df
 
@@ -39,6 +39,7 @@ class AllDataset(DatasetBase):
 if __name__ == '__main__':
 
     from object_detection.config.config_reader import ConfigReader
+    from object_detection.utils.image_utils import letterbox_image
 
     config = ConfigReader()
 

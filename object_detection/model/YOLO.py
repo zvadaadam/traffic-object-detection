@@ -111,6 +111,7 @@ class YOLO(ModelBase):
         self.loss = 0
         # number of anchors defined number of scales
         for i, y_scale in enumerate(y):
+            tf.is_nan(y_scale)
             transformed_logits = self.transform_output_logits(logits[i])
 
             self.loss += self.yolo_loss(predict=transformed_logits, label=y_scale, anchors=self.anchors[i])
@@ -151,7 +152,6 @@ class YOLO(ModelBase):
         #     tf.math.greater(tf.constant(stabel_lr_epoches * self.config.batch_size() * self.config.num_iterations()), self.global_step_tensor),
         #             lambda: tf.constant(start_learning_rate),
         #             lambda: tf.train.polynomial_decay(start_learning_rate, self.global_step_tensor - tf.constant(300), 50, 0.0000001))
-
 
         self.learning_rate = tf.constant(start_learning_rate)
 
@@ -218,7 +218,7 @@ class YOLO(ModelBase):
             # hack from darknet: box punishment - give higher weights to small boxes
             label_size_absolute = label_size / anchors
             box_loss_scale = 2. - (label_size_absolute[..., 0] * label_size_absolute[..., 1])
-            #box_loss_scale = tf.Print(box_loss_scale, [box_loss_scale])
+            #box_loss_scale = tf.Print(box_loss_scale, [box_loss_scale], summarize=-1)
             box_loss_scale = tf.expand_dims(box_loss_scale, axis=-1)
 
             # inverting ground truth to match network output for gradient update (pred_size is transformed using exp)
@@ -250,20 +250,24 @@ class YOLO(ModelBase):
             confidence_pred = tf.expand_dims(pred[..., 4], axis=-1)
 
             iou = self.iou(label[..., 0:4], pred[..., 0:4], anchors)
-
-            # good detections
-            bad_object_detections = tf.cast(iou < 0.5, dtype=tf.float32)  # 1 - object_detections
+            iou = tf.reduce_max(iou, axis=-1)
+            bad_object_detections = tf.cast(iou < 0.4, dtype=tf.float32)  # 1 - object_detections
+            bad_object_detections = tf.expand_dims(bad_object_detections, axis=-1)
 
             # NOT DETECTED OBJECT - punish bad detection
             #no_objects_loss = mask_noobj * tf.square(confidence_label - (confidence_pred * bad_object_detections)) * lambda_noobj
-            no_objects_loss = mask_noobj * tf.square(confidence_label - confidence_pred) * bad_object_detections * lambda_noobj
-
-            loss_noobj = tf.reduce_sum(no_objects_loss, axis=[1, 2, 3, 4])
-            loss_noobj = tf.reduce_mean(loss_noobj)
+            #no_objects_loss = mask_noobj * tf.square(confidence_label - confidence_pred) * bad_object_detections * lambda_noobj
+            no_objects_loss = tf.keras.backend.binary_crossentropy(target=confidence_label, output=confidence_pred)
+            no_objects_loss = mask_noobj * bad_object_detections * no_objects_loss
 
             # DETECTED - punish wrong detections
             #objects_loss = mask_obj * tf.square((confidence_label - (confidence_pred * object_detections))) * lambda_obj
-            objects_loss = mask_obj * tf.square(confidence_label - confidence_pred) #* lambda_obj
+            #objects_loss = mask_obj * tf.square(confidence_label - confidence_pred) #* lambda_obj
+            objects_loss = tf.keras.backend.binary_crossentropy(target=confidence_label, output=confidence_pred)
+            objects_loss = mask_obj * no_objects_loss
+
+            loss_noobj = tf.reduce_sum(no_objects_loss, axis=[1, 2, 3, 4])
+            loss_noobj = tf.reduce_mean(loss_noobj)
 
             loss_obj = tf.reduce_sum(objects_loss, axis=[1, 2, 3, 4])
             loss_obj = tf.reduce_mean(loss_obj)
@@ -289,8 +293,11 @@ class YOLO(ModelBase):
         inter_x_max = tf.minimum(pred_x_max, true_x_max)
         inter_y_max = tf.minimum(pred_y_max, true_y_max)
 
+        inter_w = tf.maximum(inter_x_max - inter_x_min, 0.0)
+        inter_h = tf.maximum(inter_y_max - inter_y_min, 0.0)
+
         # get area of intersect box, true box and pred box
-        inter_area = (inter_x_max - inter_x_min) * (inter_y_max - inter_y_min)
+        inter_area = inter_w * inter_h
         true_area = (true_x_max - true_x_min) * (true_y_max - true_y_min)
         pred_area = (pred_x_max - pred_x_min) * (pred_y_max - pred_y_min)
 

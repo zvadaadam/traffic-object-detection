@@ -30,6 +30,51 @@ def resize_image(img, new_width, new_height):
     return cv2.resize(img, (new_width, new_height, ), interpolation=cv2.INTER_CUBIC)
 
 
+def letterbox_image(image, size):
+    """
+    Resize image with unchanged aspect ratio
+    :param image: image
+    :param size: new image size
+    :return:
+    """
+    image_w, image_h, _ = image.shape
+    w, h = size
+
+    new_w = int(image_w * min(w*1.0/image_w, h*1.0/image_h))
+    new_h = int(image_h * min(w*1.0/image_w, h*1.0/image_h))
+
+    resized_image = image.resize((new_w,new_h), Image.BICUBIC)
+
+    boxed_image = Image.new('RGB', size, (128,128,128))
+    boxed_image.paste(resized_image, ((w-new_w)//2, (h-new_h)//2))
+
+    return boxed_image
+
+
+def letterbox_image_2(image, target_size, gt_boxes=None):
+
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB).astype(np.float32)
+
+    ih, iw = target_size
+    h, w, _ = image.shape
+
+    scale = min(iw/w, ih/h)
+    nw, nh = int(scale * w), int(scale * h)
+    image_resized = cv2.resize(image, (nw, nh))
+
+    image_paded = np.full(shape=[ih, iw, 3], fill_value=128.0)
+    dw, dh = (iw - nw) // 2, (ih-nh) // 2
+    image_paded[dh:nh+dh, dw:nw+dw, :] = image_resized
+    image_paded = image_paded / 255.
+
+    if gt_boxes is None:
+        return image_paded
+
+    else:
+        gt_boxes[:, [0, 2]] = gt_boxes[:, [0, 2]] * scale + dw
+        gt_boxes[:, [1, 3]] = gt_boxes[:, [1, 3]] * scale + dh
+        return image_paded, gt_boxes
+
 def draw_boxes_cv(image, boxes, scores, classes):
     image_h, image_w, _ = image.shape
 
@@ -94,7 +139,6 @@ def draw_boxes_PIL(image, boxes, scores, classes):
         del draw
 
     return np.array(image.convert('RGB'))
-
 
 # Discard all boxes with low scores and high IOU
 # def non_max_suppression(boxes, scores, num_classes, max_boxes=50, score_thresh=0.3, iou_thresh=0.5):

@@ -105,7 +105,7 @@ class BddDataset(DatasetBase):
             print('Processing Validation')
             image_path = os.path.join(self.image_path, 'val')
 
-        #for image_annotations in tqdm(annotations[:500]):
+        # for image_annotations in tqdm(annotations[:500]):
         for image_annotations in tqdm(annotations):
             image_filename = os.path.join(image_path, image_annotations['name'])
 
@@ -123,6 +123,16 @@ class BddDataset(DatasetBase):
                 image_shape_h = 720
                 image_shape_d = 3
 
+                # image = cv2.imread(image_filename)
+                # image, boxes = letterbox_image_2(image, (config.image_width(), config.image_height()),
+                #                           gt_boxes=np.array([(x_min, y_min, x_max, y_max)]))
+                #
+                # image = draw_boxes_PIL(image, boxes=boxes, scores=[1],
+                #                        classes=[1])
+                #
+                # plt.imshow(image)
+                # plt.show()
+
                 record = [image_filename, image_shape_w, image_shape_h, image_shape_d, x_min, y_min, x_max, y_max,
                           object_class, 'bdd']
                 records.append(record)
@@ -132,6 +142,8 @@ class BddDataset(DatasetBase):
 if __name__ == '__main__':
 
     from object_detection.config.config_reader import ConfigReader
+    from object_detection.utils.image_utils import letterbox_image_2, draw_boxes_PIL
+    import matplotlib.pyplot as plt
 
     config = ConfigReader()
 
@@ -140,5 +152,10 @@ if __name__ == '__main__':
     dataset.load_dataset()
 
     test_df = dataset.test_dataset()
-    image_filenames = test_df['image_filename'].values.tolist()[90:190]
+    image_filename = test_df['image_filename'].values.tolist()[0]
 
+    image = cv2.imread(image_filename)
+    image = letterbox_image_2(image, (config.image_width(), config.image_height()))
+
+    plt.imshow(image)
+    plt.show()
