@@ -18,42 +18,47 @@ class DarkNet53(CNNModel):
 
         conv = self.conv(x, filter_height=3, filter_width=3, num_filters=32,
                          stride_x=1, stride_y=1, padding='SAME', training=is_training, scope_name='conv1')
-        print(conv.get_shape())
+
         conv = self.conv(conv, filter_height=3, filter_width=3, num_filters=64,
                          stride_x=2, stride_y=2, padding='SAME', training=is_training, scope_name='conv2')
-        print(conv.get_shape())
+
         for i in range(1):
-            conv = self.residual_conv_block(conv, num_filter_1=32, num_filter_2=64,
-                                            kernel_1=(1, 1), kernel_2=(3, 3), name='residual_conv1')
+            name = f'residual_conv1_{i}'
+            conv = self.residual_conv_block(conv, num_filter_1=32, num_filter_2=64, kernel_1=(1, 1),
+                                            kernel_2=(3, 3), training=is_training, name=name)
 
         conv = self.conv(conv, filter_height=3, filter_width=3, num_filters=128,
                          stride_x=2, stride_y=2, padding='SAME', training=is_training, scope_name='conv5')
 
         for i in range(2):
-            conv = self.residual_conv_block(conv, num_filter_1=64, num_filter_2=128,
-                                            kernel_1=(1, 1), kernel_2=(3, 3), name='residual_conv2')
+            name = f'residual_conv2_{i}'
+            conv = self.residual_conv_block(conv, num_filter_1=64, num_filter_2=128, kernel_1=(1, 1),
+                                            kernel_2=(3, 3), training=is_training, name=name)
 
         conv = self.conv(conv, filter_height=3, filter_width=3, num_filters=256,
                          stride_x=2, stride_y=2, padding='SAME', training=is_training, scope_name='conv10')
 
         for i in range(8):
-            conv = self.residual_conv_block(conv, num_filter_1=128, num_filter_2=256,
-                                            kernel_1=(1, 1), kernel_2=(3, 3), name='residual_conv3')
+            name = f'residual_conv3_{i}'
+            conv = self.residual_conv_block(conv, num_filter_1=128, num_filter_2=256, kernel_1=(1, 1), kernel_2=(3, 3),
+                                            training=is_training, name=name)
         route_1 = conv
 
         conv = self.conv(conv, filter_height=3, filter_width=3, num_filters=512,
                          stride_x=2, stride_y=2, padding='SAME', training=is_training, scope_name='conv27')
         for i in range(8):
-            conv = self.residual_conv_block(conv, num_filter_1=256, num_filter_2=512,
-                                            kernel_1=(1, 1), kernel_2=(3, 3), name='residual_conv4')
+            name = f'residual_conv4_{i}'
+            conv = self.residual_conv_block(conv, num_filter_1=256, num_filter_2=512, kernel_1=(1, 1),
+                                            kernel_2=(3, 3), training=is_training, name=name)
         route_2 = conv
 
         conv = self.conv(conv, filter_height=3, filter_width=3, num_filters=1024,
                          stride_x=2, stride_y=2, padding='SAME', training=is_training, scope_name='conv36')
 
         for i in range(4):
-            conv = self.residual_conv_block(conv, num_filter_1=512, num_filter_2=1024,
-                                            kernel_1=(1, 1), kernel_2=(3, 3), name='residual_conv5')
+            name = f'residual_conv5_{i}'
+            conv = self.residual_conv_block(conv, num_filter_1=512, num_filter_2=1024, kernel_1=(1, 1),
+                                            kernel_2=(3, 3), training=is_training, name=name)
 
         return self.pyramid_network(route_1, route_2, conv, is_training)
 

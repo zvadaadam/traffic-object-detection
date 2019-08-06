@@ -114,7 +114,8 @@ class ObjectTrainer(BaseTrain):
 
         # run training
         if merged_summaries != None:
-            loss, _, summary = self.session.run([self.model.loss, self.model.opt, merged_summaries],
+            loss, _, summary, nan_1, nan_2, nan_3 = self.session.run([self.model.loss, self.model.opt, merged_summaries,
+                                                                      self.model.nan_1, self.model.nan_2, self.model.nan_3],
                                                 feed_dict={self.iterator.handle_placeholder: self.train_handle,
                                                            self.model.is_training: True},
                                                 options=self.options, run_metadata=self.run_metadata)
@@ -122,11 +123,15 @@ class ObjectTrainer(BaseTrain):
             # write summaries to tensorboard
             train_writer.add_summary(summary, num_iter)
         else:
-            loss, _ = self.session.run([self.model.loss, self.model.opt],
+            loss, _, nan_1, nan_2, nan_3  = self.session.run([self.model.loss, self.model.opt,
+                                                              self.model.nan_1, self.model.nan_2, self.model.nan_3],
                                        feed_dict={self.iterator.handle_placeholder: self.train_handle,
                                                   self.model.is_training: True})
 
         print(loss)
+        print(np.any(nan_1))
+        print(np.any(nan_2))
+        print(np.any(nan_3))
 
         # increase global step
         self.session.run(self.model.increment_global_step_tensor)
@@ -137,19 +142,24 @@ class ObjectTrainer(BaseTrain):
 
         num_iterations = self.config.num_iterations() * cur_epoche
 
-        loss, summary, loss_cord, loss_size, loss_obj, loss_noobj, loss_class, learning_rate = self.session.run(
-            [self.model.get_loss(),
+        loss, summary, loss_cord, loss_size, loss_obj, loss_noobj, loss_class, learning_rate, nan_1, nan_2, nan_3 = self.session.run(
+            [self.model.loss,
              merged_summaries,
              self.model.loss_cord,
              self.model.loss_size,
              self.model.loss_obj,
              self.model.loss_noobj,
              self.model.loss_class,
-             self.model.learning_rate],
+             self.model.learning_rate,
+             self.model.nan_1, self.model.nan_2, self.model.nan_3],
             feed_dict={self.iterator.handle_placeholder: self.test_handle,
-                       self.model.is_training: False})
+                       self.model.is_training: True})
 
         test_writer.add_summary(summary, num_iterations)
+
+        print(np.any(nan_1))
+        print(np.any(nan_2))
+        print(np.any(nan_3))
 
         # -----------TESTING-----------
         # np.set_printoptions(formatter={'float_kind': '{:f}'.format})

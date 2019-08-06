@@ -108,10 +108,13 @@ class YOLO(ModelBase):
 
         logits = self.network.build_network(x, self.is_training)
 
+        self.nan_1 = tf.is_nan(logits[0])
+        self.nan_2 = tf.is_nan(logits[1])
+        self.nan_3 = tf.is_nan(logits[2])
+
         self.loss = 0
         # number of anchors defined number of scales
         for i, y_scale in enumerate(y):
-            tf.is_nan(y_scale)
             transformed_logits = self.transform_output_logits(logits[i])
 
             self.loss += self.yolo_loss(predict=transformed_logits, label=y_scale, anchors=self.anchors[i])
@@ -264,7 +267,7 @@ class YOLO(ModelBase):
             #objects_loss = mask_obj * tf.square((confidence_label - (confidence_pred * object_detections))) * lambda_obj
             #objects_loss = mask_obj * tf.square(confidence_label - confidence_pred) #* lambda_obj
             objects_loss = tf.keras.backend.binary_crossentropy(target=confidence_label, output=confidence_pred)
-            objects_loss = mask_obj * no_objects_loss
+            objects_loss = mask_obj * objects_loss
 
             loss_noobj = tf.reduce_sum(no_objects_loss, axis=[1, 2, 3, 4])
             loss_noobj = tf.reduce_mean(loss_noobj)

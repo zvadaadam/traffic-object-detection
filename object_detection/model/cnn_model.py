@@ -11,23 +11,29 @@ class CNNModel(object):
     def build_network(self, x, is_training):
         raise NotImplementedError
 
-    def residual_conv_block(self, input, num_filter_1, num_filter_2, kernel_1, kernel_2, name):
+    def residual_conv_block(self, input, num_filter_1, num_filter_2, kernel_1, kernel_2, training, name):
 
         with tf.variable_scope(name):
-            output = tf.keras.layers.Conv2D(filters=num_filter_1, kernel_size=kernel_1, padding='SAME')(input)
+            first_name = f'{name}_1'
+            output = self.conv(input, filter_height=kernel_1[0], filter_width=kernel_1[1], num_filters=num_filter_1,
+                               stride_x=1, stride_y=1, padding='SAME', training=training, scope_name=first_name)
+            #output = tf.keras.layers.Conv2D(filters=num_filter_1, kernel_size=kernel_1, padding='SAME')(input)
             #output = tf.keras.activations.relu(output)
-            output = tf.keras.layers.LeakyReLU(alpha=0.1)(output)
-            print(f'InResConv1: {output.get_shape()}')
+            #output = tf.keras.layers.LeakyReLU(alpha=0.1)(output)
+            print(f'{first_name}: {output.get_shape()}')
 
-            output = tf.keras.layers.Conv2D(filters=num_filter_2, kernel_size=kernel_2, padding='SAME')(output)
+            second_name = f'{name}_2'
+            output = self.conv(output, filter_height=kernel_2[0], filter_width=kernel_2[1], num_filters=num_filter_2,
+                               stride_x=1, stride_y=1, padding='SAME', training=training, scope_name=second_name)
+            #output = tf.keras.layers.Conv2D(filters=num_filter_2, kernel_size=kernel_2, padding='SAME')(output)
             #output = tf.keras.activations.relu(output)
-            output = tf.keras.layers.LeakyReLU(alpha=0.1)(output)
-            print(f'InResConv2: {output.get_shape()}')
+            #output = tf.keras.layers.LeakyReLU(alpha=0.1)(output)
+            print(f'{second_name}: {output.get_shape()}')
 
             residual_output = input + output
 
             #residual_output = tf.keras.activations.relu(residual_output)
-            residual_output = tf.keras.activations.linear(residual_output)
+            #residual_output = tf.keras.activations.linear(residual_output)
 
         return residual_output
 
@@ -39,7 +45,7 @@ class CNNModel(object):
     def conv(self, inputs, filter_height, filter_width, num_filters,
              stride_x, stride_y, padding, training, activate=True, bn=True, scope_name='conv'):
 
-        with tf.variable_scope(scope_name) as scope:
+        with tf.variable_scope(scope_name):
 
             # darkent uses top left padding
             if stride_x > 1:
@@ -71,7 +77,7 @@ class CNNModel(object):
             #output = tf.keras.layers.LeakyReLU(alpha=0.1)(batch_normed)
 
             if bn:
-                output = tf.keras.layers.BatchNormalization(epsilon=0.001, momentum=0.9, renorm=True)(output, training=training)
+                output = tf.keras.layers.BatchNormalization(epsilon=0.001, momentum=0.9)(output, training=training)
             if activate:
                 output = tf.keras.layers.LeakyReLU(alpha=0.1)(output)
 
