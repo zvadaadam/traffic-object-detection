@@ -74,6 +74,9 @@ class ConfigReader(object):
     def num_classes(self):
         return self.dataset['num_classes']
 
+    def preserve_aspect_ratio(self):
+        return self.dataset['preserve_aspect_ratio']
+
     # --DATASET--
 
     def udacity_dataset_name(self):

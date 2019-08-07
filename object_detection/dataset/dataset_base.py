@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import tensorflow as tf
 from tqdm import tqdm
+from object_detection.utils import image_utils
 from sklearn.model_selection import train_test_split
 from object_detection.config.config_reader import ConfigReader
 
@@ -162,8 +163,8 @@ class DatasetBase(object):
             height_ratio = yolo_image_size / image_shape[1]
 
             # resize cords
-            x_min, x_max = width_ratio * float(bbox[0]), width_ratio * float(bbox[2])
-            y_min, y_max = height_ratio * float(bbox[1]), height_ratio * float(bbox[3])
+            x_min, y_min, x_max, y_max = image_utils.resize_boxe(bbox, current_size=(image_shape[0], image_shape[1]),
+                                                                 target_size=(yolo_image_size, yolo_image_size))
 
             # self.test_plot_yolo_img(traffic_object[0], x_min, y_min, x_max, y_max, traffic_object[:10])
 

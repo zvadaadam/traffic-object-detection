@@ -184,8 +184,14 @@ class ImageIterator(object):
         #img_raw = tf.Print(img_raw, [image])
         img = tf.image.decode_jpeg(img_raw, channels=3)
         img = tf.image.convert_image_dtype(img, tf.float32)  # image normalization
-        img = tf.image.resize_images(img, [self.config.image_width(), self.config.image_height()],
-                                     method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
+
+        # TODO: pick best resize method
+        if self.config.preserve_aspect_ratio():
+            img = tf.image.resize_image_with_pad(img, target_width=self.config.image_width(),
+                                                 target_height=self.config.image_height())
+        else:
+            img = tf.image.resize_images(img, [self.config.image_width(), self.config.image_height()])
+
 
         # image normalization
         #img = tf.cond(tf.math.reduce_max(img) > 1.0, lambda: img/255, lambda: img)
@@ -229,18 +235,18 @@ if __name__ == '__main__':
 
             images, labels = session.run((x, y))
 
-            test_iou = model.test_iou()
-            output = session.run(test_iou, feed_dict={model.test_large: labels[2], model.y_large: labels[2]})
-            print(output)
+            # test_iou = model.test_iou()
+            # output = session.run(test_iou, feed_dict={model.test_large: labels[2], model.y_large: labels[2]})
+            # print(output)
 
             # check bb conversion
-            # label_to_boxes = model.label_to_boxes()
-            # transformed_labels = session.run(label_to_boxes, feed_dict={model.y_medium: labels[1]})
-            #
-            # image = image_utils.draw_boxes_PIL(images[0], boxes=transformed_labels[0], scores=transformed_labels[1],
-            #                                    classes=transformed_labels[2])
-            # plt.imshow(image)
-            # plt.show()
+            label_to_boxes = model.label_to_boxes()
+            transformed_labels = session.run(label_to_boxes, feed_dict={model.y_medium: labels[1]})
+
+            image = image_utils.draw_boxes_PIL(images[0], boxes=transformed_labels[0], scores=transformed_labels[1],
+                                               classes=transformed_labels[2])
+            plt.imshow(image)
+            plt.show()
 
         # for image in images:
             #     image = image_utils.draw_boxes_PIL(image, boxes=transformed_labels[0], scores=transformed_labels[1],

@@ -75,6 +75,33 @@ def letterbox_image_2(image, target_size, gt_boxes=None):
         gt_boxes[:, [1, 3]] = gt_boxes[:, [1, 3]] * scale + dh
         return image_paded, gt_boxes
 
+def resize_boxe(boxes, current_size, target_size, keep_ratio=True):
+
+    x_min, y_min, x_max, y_max = boxes
+
+    # height, width = current_size
+    # target_height, target_width = target_size
+
+    width, height, = current_size
+    target_width, target_height = target_size
+
+    if keep_ratio:
+        scale = min(target_width / width, target_height / height)
+        nw, nh = int(scale * width), int(scale * height)
+        dw, dh = (target_width - nw) // 2, (target_height - nh) // 2
+
+        x_min, x_max = x_min * scale + dw, x_max * scale + dw
+        y_min, y_max = y_min * scale + dh, y_max * scale + dh
+    else:
+        width_scale = target_width / width
+        height_scale = target_height / height
+
+        x_min, x_max = x_min * width_scale, x_max * width_scale
+        y_min, y_max = y_min * height_scale, y_max * height_scale
+
+    return x_min, y_min, x_max, y_max
+
+
 def draw_boxes_cv(image, boxes, scores, classes):
     image_h, image_w, _ = image.shape
 
