@@ -23,6 +23,7 @@ class ConfigReader(object):
             self.udacity = config['udacity']
             self.rovit = config['rovit']
             self.bdd = config['bdd']
+            self.fuzee = config['fuzee']
             self.hyperparams = config['hyperparams']
             self.model = config['model']
             self.yolo = config['yolo']
@@ -207,6 +208,50 @@ class ConfigReader(object):
 
     def rovit_num_classes(self):
         return self.rovit['num_classes']
+
+    # --FUZEE-DATASET--
+
+    def fuzee_dataset_name(self):
+        return self.fuzee['name']
+
+    def fuzee_root_dataset(self):
+        path = self.fuzee['root_dataset']
+
+        if path == None:
+            return None
+
+        return self._absolute_path(path)
+
+
+    def fuzee_dataset_path(self):
+        path = self.fuzee['dataset_path']
+
+        if path == None:
+            return None
+
+        return self._absolute_path(path)
+
+    def fuzee_tfrecords_train_path(self):
+        path = self.fuzee['tfrecords_train_path']
+
+        if path == None:
+            return None
+
+        return self._absolute_path(path)
+
+    def fuzee_tfrecords_test_path(self):
+        path = self.fuzee['tfrecords_test_path']
+
+        if path == None:
+            return None
+
+        return self._absolute_path(path)
+
+    def fuzee_test_size(self):
+        return self.fuzee['test_size']
+
+    def fuzee_num_classes(self):
+        return self.fuzee['num_classes']
 
     # --YOLO--
 

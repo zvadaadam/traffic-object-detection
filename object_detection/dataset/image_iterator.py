@@ -86,11 +86,11 @@ class ImageIterator(object):
             (self.model.image_paths, self.model.y_small, self.model.y_medium, self.model.y_large)
         )
 
-        num_images = len(df)
+        num_images = len(df['image_filename'].unique())
         dataset = dataset.apply(tf.data.experimental.shuffle_and_repeat(buffer_size=num_images))
-        dataset = dataset.map(self.preprocess_record, num_parallel_calls=8)
-        dataset = dataset.map(self.image_augmentation, num_parallel_calls=8)
-        dataset = dataset.batch(self.config.batch_size(), drop_remainder=True)
+        dataset = dataset.map(self.preprocess_record, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+        dataset = dataset.map(self.image_augmentation, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+        dataset = dataset.batch(self.config.batch_size(), drop_remainder=True) # TODO: batch should be before map - vectorized
         dataset = dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
 
         dataset_iterator = dataset.make_initializable_iterator()
@@ -227,7 +227,7 @@ if __name__ == '__main__':
     dataset = BddDataset(config)
     dataset.load_dataset()
 
-    for _ in range(0, 1):
+    for _ in range(0, 5):
         with tf.Session() as session:
             iterator = ImageIterator(session, dataset, config, model)
             # iterator.create_iterator_from_tfrecords(mode='train')
@@ -241,11 +241,16 @@ if __name__ == '__main__':
 
             # check bb conversion
             label_to_boxes = model.label_to_boxes()
-            transformed_labels = session.run(label_to_boxes, feed_dict={model.y_medium: labels[1]})
+            transformed_labels = session.run(label_to_boxes, feed_dict={model.y_small: labels[0],
+                                                                        model.y_medium: labels[1],
+                                                                        model.y_large: labels[2]})
 
             image = image_utils.draw_boxes_PIL(images[0], boxes=transformed_labels[0], scores=transformed_labels[1],
                                                classes=transformed_labels[2])
             plt.imshow(image)
+            plt.show()
+
+            plt.imshow(images[0])
             plt.show()
 
         # for image in images:

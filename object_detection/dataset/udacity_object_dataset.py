@@ -36,6 +36,7 @@ class UdacityObjectDataset(DatasetBase):
 
         records = []
 
+        #for data_row in data[:500]:
         for data_row in data:
             image_filename = os.path.join(self.dataset_path, data_row[0])
             # TODO: investigate if all has this shape or load directly from the image

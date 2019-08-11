@@ -19,16 +19,18 @@ class YOLO(ModelBase):
         self.detections = None
 
         # TODO: read from config
-        #self.anchors = [(0.1, 0.15), (0.3, 0.25), (0.4, 0.5)]
-        anchors_large = [[161.19999695, 226.4888916], [57.19999695, 97.06668091], [19.82500076, 63.41111755]]
+        anchors_large = [[161.525, 143.0], [58.06666667, 59.36666667], [26.325, 28.4375]]  # preserve aspect ratio
+        #self.anchors_large = [[161.19999695, 226.4888916], [57.19999695, 97.06668091], [19.82500076, 63.41111755]]
         anchors_large = np.array(anchors_large)
         anchors_large /= self.config.image_width()
 
-        anchors_medium = [[38.56666565, 32.58666992], [17.0625, 19.5], [8.93748474, 33.27999878]]
+        anchors_medium = [[44.60625, 9.66875], [15.925, 12.5125], [8.775, 21.45]]  # preserve aspect ratio
+        #self.anchors_medium = [[38.56666565, 32.58666992], [17.0625, 19.5], [8.93748474, 33.27999878]]
         anchors_medium = np.array(anchors_medium)
         anchors_medium /= self.config.image_width()
 
-        anchors_small = [[5.6333313, 17.33332825], [9.5874939, 10.1111145], [4.0625, 7.80000305]]
+        anchors_small = [[6.0125, 9.99375], [10.075, 5.6875], [4.225, 4.46875]]  # preserve aspect ratio
+        #self.anchors_small = [[5.6333313, 17.33332825], [9.5874939, 10.1111145], [4.0625, 7.80000305]]
         anchors_small = np.array(anchors_small)
         anchors_small /= self.config.image_width()
 
@@ -84,7 +86,7 @@ class YOLO(ModelBase):
         Test function identity transformation
         :return:
         """
-        return self.eval_prediction(self.y_medium)
+        return self.eval_prediction([self.y_small, self.y_medium, self.y_large])
 
     def test_iou(self):
         """
@@ -109,8 +111,16 @@ class YOLO(ModelBase):
         logits = self.network.build_network(x, self.is_training)
 
         self.nan_1 = tf.is_nan(logits[0])
+        is_nan_1 = tf.reduce_any(self.nan_1)
+        tf.summary.scalar('nan_1', tf.cast(is_nan_1, dtype=tf.int32))
+
         self.nan_2 = tf.is_nan(logits[1])
+        is_nan_2 = tf.reduce_any(self.nan_2)
+        tf.summary.scalar('nan_2', tf.cast(is_nan_2, dtype=tf.int32))
+
         self.nan_3 = tf.is_nan(logits[2])
+        is_nan_3 = tf.reduce_any(self.nan_3)
+        tf.summary.scalar('nan_3', tf.cast(is_nan_3, dtype=tf.int32))
 
         self.loss = 0
         # number of anchors defined number of scales
@@ -181,14 +191,14 @@ class YOLO(ModelBase):
             tf.summary.scalar('loss_cord', loss_cord)
             tf.summary.scalar('loss_size', loss_size)
 
-            loss_obj, loss_noobj = self.confidence_loss(label, predict, anchors, lambda_noobj)
+            loss_confidence, loss_obj, loss_noobj = self.confidence_loss(label, predict, anchors, lambda_noobj)
             self.loss_obj = loss_obj
             self.loss_noobj = loss_noobj
+            self.loss_confidence = loss_confidence
 
             tf.summary.scalar('loss_obj', loss_obj)
             tf.summary.scalar('loss_noobj', loss_noobj)
-
-            loss_confidence = loss_obj + loss_noobj
+            tf.summary.scalar('loss_confidence', loss_confidence)
 
             loss_class = self.classes_loss(label, predict)
             self.loss_class = loss_class
@@ -243,6 +253,9 @@ class YOLO(ModelBase):
 
         return loss_size, loss_cord
 
+    def focal_loss(self, target, actual, alpha=1, gamma=2):
+        return alpha * tf.pow(tf.abs(target - actual), gamma)
+
     def confidence_loss(self, label, pred, anchors, lambda_obj=1, lambda_noobj=0.5):
 
         with tf.name_scope('confidence'):
@@ -254,7 +267,7 @@ class YOLO(ModelBase):
 
             iou = self.iou(label[..., 0:4], pred[..., 0:4], anchors)
             iou = tf.reduce_max(iou, axis=-1)
-            bad_object_detections = tf.cast(iou < 0.4, dtype=tf.float32)  # 1 - object_detections
+            bad_object_detections = tf.cast(iou < 0.5, dtype=tf.float32)  # 1 - object_detections
             bad_object_detections = tf.expand_dims(bad_object_detections, axis=-1)
 
             # NOT DETECTED OBJECT - punish bad detection
@@ -269,13 +282,22 @@ class YOLO(ModelBase):
             objects_loss = tf.keras.backend.binary_crossentropy(target=confidence_label, output=confidence_pred)
             objects_loss = mask_obj * objects_loss
 
-            loss_noobj = tf.reduce_sum(no_objects_loss, axis=[1, 2, 3, 4])
-            loss_noobj = tf.reduce_mean(loss_noobj)
+            # focal loss
+            focal = self.focal_loss(confidence_label, confidence_pred)
 
-            loss_obj = tf.reduce_sum(objects_loss, axis=[1, 2, 3, 4])
-            loss_obj = tf.reduce_mean(loss_obj)
+            # sum up everything
+            confidence_loss = focal * (no_objects_loss + objects_loss)
 
-        return loss_obj, loss_noobj
+            confidence_loss = tf.reduce_sum(confidence_loss, axis=[1, 2, 3, 4])
+            confidence_loss = tf.reduce_mean(confidence_loss)
+
+            objects_loss = tf.reduce_sum(objects_loss, axis=[1, 2, 3, 4])
+            objects_loss = tf.reduce_mean(objects_loss)
+
+            no_objects_loss = tf.reduce_sum(no_objects_loss, axis=[1, 2, 3, 4])
+            no_objects_loss = tf.reduce_mean(no_objects_loss)
+
+        return confidence_loss, objects_loss, no_objects_loss
 
     def iou(self, label_box, pred_box, anchors):
 
@@ -329,16 +351,30 @@ class YOLO(ModelBase):
 
     def eval_prediction(self, y_pred):
 
-        boxes = y_pred[..., :4]
-        confidence = y_pred[..., 4:5]
-        classes = y_pred[..., 5:]
+        boxes = []
+        scores = []
+        classes = []
+        for y_pred_scale, anchor in zip(y_pred, self.anchors):
 
-        # convert to from (x,y,w,h) to (y1, x1, y2, x2) cause of nms
-        boxes = self.convert_to_min_max_cord(boxes, anchors=self.anchors[1])  # TODO: support multiscale anchors!
+            scale_boxes = y_pred_scale[..., :4]
+            scale_scores = y_pred_scale[..., 4:5]
+            scale_classes = y_pred_scale[..., 5:]
 
-        boxes, scores, classes = self.filter_boxes(boxes, confidence, classes)
+            # convert to from (x,y,w,h) to (y1, x1, y2, x2) cause of nms
+            scale_boxes = self.convert_to_min_max_cord(scale_boxes, anchors=anchor)  # TODO: support multiscale anchors!
+
+            scale_boxes, scale_scores, scale_classes = self.filter_boxes(scale_boxes, scale_scores, scale_classes)
+
+            boxes.append(scale_boxes)
+            scores.append(scale_scores)
+            classes.append(scale_classes)
+
+        boxes = tf.concat(boxes, axis=0)
+        scores = tf.concat(scores, axis=0)
+        classes = tf.concat(classes, axis=0)
 
         return boxes, scores, classes
+        #return self.non_max_suppression(boxes, scores, classes)
 
 
     def filter_boxes(self, boxes, confidence, classes, threshold=0.5):
@@ -348,12 +384,8 @@ class YOLO(ModelBase):
         box_scores = confidence * classes
 
         # index of highest box score (return vector?)
-        #box_classes = tf.argmax(box_scores, axis=-1)
-
-        # value of the highest box score (return vector?)
-        #box_class_scores = tf.reduce_max(box_scores, axis=-1)
-
         box_classes = tf.argmax(box_scores, axis=-1)
+        # value of the highest box score (return vector?)
         box_class_scores = tf.reduce_max(box_scores, axis=-1)
 
         prediction_mask = (box_class_scores >= threshold)
@@ -362,7 +394,8 @@ class YOLO(ModelBase):
         scores = tf.boolean_mask(box_class_scores, prediction_mask)
         classes = tf.boolean_mask(box_classes, prediction_mask)
 
-        return self.non_max_suppression(boxes, scores, classes)
+        #return self.non_max_suppression(boxes, scores, classes)
+        return boxes, scores, classes
 
         # TODO: Problem is that tf.boolean_mask deletes the information about batch size and does not support keepdims.
         #  Tried to apply tf.map_fn, but it does not support inconsistent output shapes.

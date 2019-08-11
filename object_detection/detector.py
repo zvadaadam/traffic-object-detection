@@ -89,7 +89,7 @@ class Detector(object):
         image = np.expand_dims(image, axis=0)
 
         prediction = self.session.run(
-            [self.model.detections], feed_dict={self.model.is_training: False,
+            [self.model.detections], feed_dict={self.model.is_training: True,
                                                 self.model.images: image}
         )
 
@@ -103,8 +103,8 @@ if __name__ == '__main__':
     import numpy as np
     from object_detection.dataset.udacity_object_dataset import UdacityObjectDataset
     from object_detection.dataset.rovit_dataset import RovitDataset
+    from object_detection.dataset.image_iterator import ImageIterator
     from object_detection.utils import image_utils
-    from matplotlib.pyplot import imshow
     import matplotlib.pyplot as plt
     from tensorflow.python import debug as tf_debug
 
@@ -115,7 +115,9 @@ if __name__ == '__main__':
     config = ConfigReader(config_path)
 
     # ------------TRAIN-----------------------
-    with tf.Session() as session:
+    tf_config = tf.ConfigProto()
+    tf_config.gpu_options.allow_growth = True
+    with tf.Session(config=tf_config) as session:
 
         # session = tf_debug.TensorBoardDebugWrapperSession(session, 'PRGA-004810.local:6064', send_traceback_and_source_code=False)
 
@@ -138,12 +140,13 @@ if __name__ == '__main__':
 
     # ------------PREDICTION-----------------------
     # with tf.Session() as session:
-    #     #dataset = UdacityObjectDataset(config)
-    #     dataset = RovitDataset(config)
-    #     dataset.load_dataset()
-    #     test_df = dataset.test_dataset()
-    #
-    #     image_filenames = test_df['image_filename'].values.tolist()[90:190]
+    #     #dataset = AllDataset(config)
+    #     # dataset = UdacityObjectDataset(config)
+    #     # dataset = RovitDataset(config)
+    #     #dataset.load_dataset()
+    #     #test_df = dataset.test_dataset()
+    #     #
+    #     # image_filenames = test_df['image_filename'].values.tolist()[90:190]
     #
     #     image_filenames = ['/Users/adam.zvada/Documents/Dev/object-detection/dataset/0.png',
     #                        '/Users/adam.zvada/Documents/Dev/object-detection/dataset/1.png',
@@ -162,37 +165,60 @@ if __name__ == '__main__':
     #
     #     images = []
     #     for image_filename in image_filenames:
+    #
     #         #image = cv2.imread(os.path.join(config.udacity_dataset_path(), image_filename))
     #         image = cv2.imread(image_filename)
     #
-    #         resized_img = cv2.resize(image, (config.image_width(), config.image_height()),
-    #                                 interpolation=cv2.INTER_NEAREST)
-    #
-    #         # resized_img = imutils.resize(image, width=config.image_width(), height=config.image_height())
-    #
-    #         resized_img = cv2.cvtColor(resized_img, cv2.COLOR_BGR2RGB)  # changed colors
-    #         print(resized_img.shape)
-    #
-    #         # imshow(resized_img)
-    #         # plt.show()
+    #         resized_img = image_utils.letterbox_image_2(image, (config.image_width(), config.image_height()))
     #
     #         images.append(resized_img)
     #
-    #     image = np.array(images)
+    #         plt.imshow(resized_img)
+    #         plt.show()
     #
-    #     #label = np.array(test_df['label'].values.tolist()[0:1], dtype=np.float32)[0]
     #
     #     detector = Detector(session, config=config)
     #     detector.init_prediction()
     #
     #     now = datetime.datetime.now()
     #     for image in images:
+    #
+    #         print("NEW PREDICTION...")
+    #
     #         output = detector.predict(image)
+    #         print(output)
     #
     #         img = image_utils.draw_boxes_PIL(image, output[0], output[1], output[2])
-    #         imshow(img)
+    #         plt.imshow(img)
     #         plt.show()
     #
     #     after = datetime.datetime.now()
     #     print(f'Inference Duration: {after - now}')
     # ------------PREDICTION-----------------------
+
+    # ------------PREDICTION-USING-TF.DATASET------
+    # with tf.Session() as session:
+    #     dataset = AllDataset(config)
+    #     dataset.load_dataset()
+    #
+    #     detector = Detector(session, config=config)
+    #     detector.init_prediction()
+    #     iterator = ImageIterator(session, dataset, config, detector.model)
+    #     x, y, handler = iterator.create_iterator(mode='test')
+    #
+    #     images, labels = session.run((x, y))
+    #
+    #     now = datetime.datetime.now()
+    #     for image in images:
+    #         print("NEW PREDICTION...")
+    #
+    #         output = detector.predict(image)
+    #         print(output)
+    #
+    #         img = image_utils.draw_boxes_PIL(image, output[0], output[1], output[2])
+    #         plt.imshow(img)
+    #         plt.show()
+    #
+    #     after = datetime.datetime.now()
+    #     print(f'Inference Duration: {after - now}')
+    # ------------PREDICTION-USING-TF.DATASET------

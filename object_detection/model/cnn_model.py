@@ -78,6 +78,7 @@ class CNNModel(object):
 
             if bn:
                 output = tf.keras.layers.BatchNormalization(epsilon=0.001, momentum=0.9)(output, training=training)
+
             if activate:
                 output = tf.keras.layers.LeakyReLU(alpha=0.1)(output)
 

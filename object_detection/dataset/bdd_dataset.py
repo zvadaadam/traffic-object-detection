@@ -105,7 +105,7 @@ class BddDataset(DatasetBase):
             print('Processing Validation')
             image_path = os.path.join(self.image_path, 'val')
 
-        #for image_annotations in tqdm(annotations[:1000]):
+        #for image_annotations in tqdm(annotations[:200]):
         for image_annotations in tqdm(annotations):
             image_filename = os.path.join(image_path, image_annotations['name'])
 

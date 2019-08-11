@@ -62,7 +62,7 @@ def letterbox_image_2(image, target_size, gt_boxes=None):
     nw, nh = int(scale * w), int(scale * h)
     image_resized = cv2.resize(image, (nw, nh))
 
-    image_paded = np.full(shape=[ih, iw, 3], fill_value=128.0)
+    image_paded = np.full(shape=[ih, iw, 3], fill_value=0)
     dw, dh = (iw - nw) // 2, (ih-nh) // 2
     image_paded[dh:nh+dh, dw:nw+dw, :] = image_resized
     image_paded = image_paded / 255.

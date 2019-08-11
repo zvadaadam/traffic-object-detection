@@ -6,6 +6,7 @@ from object_detection.dataset.dataset_base import DatasetBase
 from object_detection.dataset.udacity_object_dataset import UdacityObjectDataset
 from object_detection.dataset.rovit_dataset import RovitDataset
 from object_detection.dataset.bdd_dataset import BddDataset
+from object_detection.dataset.fuzee_dataset import FuzeeDataset
 
 class AllDataset(DatasetBase):
 
@@ -22,16 +23,18 @@ class AllDataset(DatasetBase):
         self.udacity_dataset = UdacityObjectDataset(config)
         self.rovit_dataset = RovitDataset(config)
         self.bdd_dataset = BddDataset(config)
+        self.fuzee_dataset = FuzeeDataset(config)
 
     def load_annotation_df(self):
 
         udacity_annotation_df = self.udacity_dataset.load_annotation_df()
-        #rovit_dataset = self.rovit_dataset.load_annotation_df()
+        rovit_dataset = self.rovit_dataset.load_annotation_df()
         bdd_dataset = self.bdd_dataset.load_annotation_df()
+        fuzee_annotation_df = self.fuzee_dataset.load_annotation_df()
 
-        #annotation_df = bdd_dataset
         annotation_df = udacity_annotation_df.append(bdd_dataset)
-        #annotation_df = annotation_df.append(rovit_dataset)
+        annotation_df = annotation_df.append(rovit_dataset)
+        annotation_df = annotation_df.append(fuzee_annotation_df)
 
         return annotation_df
 

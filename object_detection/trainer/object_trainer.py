@@ -114,8 +114,7 @@ class ObjectTrainer(BaseTrain):
 
         # run training
         if merged_summaries != None:
-            loss, _, summary, nan_1, nan_2, nan_3 = self.session.run([self.model.loss, self.model.opt, merged_summaries,
-                                                                      self.model.nan_1, self.model.nan_2, self.model.nan_3],
+            loss, _, summary = self.session.run([self.model.loss, self.model.opt, merged_summaries],
                                                 feed_dict={self.iterator.handle_placeholder: self.train_handle,
                                                            self.model.is_training: True},
                                                 options=self.options, run_metadata=self.run_metadata)
@@ -123,15 +122,11 @@ class ObjectTrainer(BaseTrain):
             # write summaries to tensorboard
             train_writer.add_summary(summary, num_iter)
         else:
-            loss, _, nan_1, nan_2, nan_3  = self.session.run([self.model.loss, self.model.opt,
-                                                              self.model.nan_1, self.model.nan_2, self.model.nan_3],
+            loss, _ = self.session.run([self.model.loss, self.model.opt],
                                        feed_dict={self.iterator.handle_placeholder: self.train_handle,
                                                   self.model.is_training: True})
 
         print(loss)
-        print(np.any(nan_1))
-        print(np.any(nan_2))
-        print(np.any(nan_3))
 
         # increase global step
         self.session.run(self.model.increment_global_step_tensor)
