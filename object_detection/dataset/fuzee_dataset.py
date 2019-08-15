@@ -51,11 +51,11 @@ class FuzeeDataset(DatasetBase):
 
     def standardize_classes(self, df):
 
+        df.drop(df[df['class'] == 'bicycle'].index, inplace=True)
+
         # NO standardization necessary
         df['class'] = df['class'].astype(str)
         df['class'] = df['class'].astype('category')
-
-        df.drop(df[df['class'] == 'bicycle'].index, inplace=True)
 
         return df
 

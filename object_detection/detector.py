@@ -80,6 +80,21 @@ class Detector(object):
         with open('timeline_01.json', 'w') as f:
             f.write(chrome_trace)
 
+    def eval(self, dataset):
+
+        # add additional options to trace the session execution
+        options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
+        run_metadata = tf.RunMetadata()
+
+        trainer = ObjectTrainer(self.session, self.model, dataset, self.config, options, run_metadata)
+        trainer.eval(num_iterations=10)
+
+        # Create the Timeline object, and write it to a json file
+        fetched_timeline = timeline.Timeline(run_metadata.step_stats)
+        chrome_trace = fetched_timeline.generate_chrome_trace_format()
+        with open('timeline_01.json', 'w') as f:
+            f.write(chrome_trace)
+
     def predict(self, image):
 
         if np.max(image) > 1.0:
@@ -108,8 +123,8 @@ if __name__ == '__main__':
     import matplotlib.pyplot as plt
     from tensorflow.python import debug as tf_debug
 
-    config_path = '/home/zvadaada/traffic-object-detection/config/yolo.yml'
-    #config_path = '/Users/adam.zvada/Documents/Dev/object-detection/config/yolo.yml'
+    #config_path = '/home/zvadaada/traffic-object-detection/config/yolo.yml'
+    config_path = '/Users/adam.zvada/Documents/Dev/object-detection/config/yolo.yml'
     #config_path = '/Users/adam.zvada/Documents/Dev/object-detection/config/test.yml'
 
     config = ConfigReader(config_path)
@@ -138,6 +153,30 @@ if __name__ == '__main__':
     # ------------TRAIN-----------------------
 
 
+    # ------------EVAL-----------------------
+    # tf_config = tf.ConfigProto()
+    # tf_config.gpu_options.allow_growth = True
+    # with tf.Session(config=tf_config) as session:
+    #
+    #     # session = tf_debug.TensorBoardDebugWrapperSession(session, 'PRGA-004810.local:6064', send_traceback_and_source_code=False)
+    #
+    #     dataset = AllDataset(config)
+    #     dataset.load_dataset()
+    #
+    #     print('DONE LOADING DATASET')
+    #
+    #     # import io
+    #     # for filename in np.asarray(dataset.train_df['image_filename'].values.tolist()):
+    #     #     try:
+    #     #         io.imread(filename)
+    #     #     except:
+    #     #         print(filename)
+    #
+    #     detector = Detector(session, config=config)
+    #     detector.eval(dataset)
+    # ------------TRAIN-----------------------
+
+
     # ------------PREDICTION-----------------------
     # with tf.Session() as session:
     #     #dataset = AllDataset(config)
@@ -148,7 +187,9 @@ if __name__ == '__main__':
     #     #
     #     # image_filenames = test_df['image_filename'].values.tolist()[90:190]
     #
-    #     image_filenames = ['/Users/adam.zvada/Documents/Dev/object-detection/dataset/0.png',
+    #     image_filenames = [
+    #                        #'/Users/adam.zvada/Documents/Dev/object-detection/dataset/fuzee-traffic-dataset/JPEGImages/DJI_0413.MP4#t=0.2.jpg',
+    #                        '/Users/adam.zvada/Documents/Dev/object-detection/dataset/0.png',
     #                        '/Users/adam.zvada/Documents/Dev/object-detection/dataset/1.png',
     #                        '/Users/adam.zvada/Documents/Dev/object-detection/dataset/2.png',
     #                        '/Users/adam.zvada/Documents/Dev/object-detection/dataset/3.png',
@@ -168,6 +209,7 @@ if __name__ == '__main__':
     #
     #         #image = cv2.imread(os.path.join(config.udacity_dataset_path(), image_filename))
     #         image = cv2.imread(image_filename)
+    #         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)  # changed colors
     #
     #         resized_img = image_utils.letterbox_image_2(image, (config.image_width(), config.image_height()))
     #

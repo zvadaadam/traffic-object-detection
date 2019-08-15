@@ -340,6 +340,9 @@ class YOLO(ModelBase):
             class_label = label[..., 5:]
             class_pred = pred[..., 5:]
 
+            #class_label = tf.Print(class_label, [class_label], summarize=-1)
+            #class_pred = tf.Print(class_pred, [class_pred], summarize=-1)
+
             # loss_class = mask_class * (class_pred - class_label)
             # loss_class = tf.reduce_sum(tf.square(loss_class), axis=[1, 2, 3, 4])
             loss_class = mask_class * tf.keras.backend.binary_crossentropy(target=class_label, output=class_pred)
@@ -363,7 +366,9 @@ class YOLO(ModelBase):
             # convert to from (x,y,w,h) to (y1, x1, y2, x2) cause of nms
             scale_boxes = self.convert_to_min_max_cord(scale_boxes, anchors=anchor)  # TODO: support multiscale anchors!
 
-            scale_boxes, scale_scores, scale_classes = self.filter_boxes(scale_boxes, scale_scores, scale_classes)
+            scale_boxes = tf.reshape(scale_boxes, [-1, 4])
+            scale_scores = tf.reshape(scale_scores, shape=[-1])
+            scale_classes = tf.reshape(scale_classes, [-1, self.config.num_classes()])
 
             boxes.append(scale_boxes)
             scores.append(scale_scores)
@@ -373,29 +378,27 @@ class YOLO(ModelBase):
         scores = tf.concat(scores, axis=0)
         classes = tf.concat(classes, axis=0)
 
-        return boxes, scores, classes
-        #return self.non_max_suppression(boxes, scores, classes)
-
+        return self.filter_boxes(boxes, scores, classes)
 
     def filter_boxes(self, boxes, confidence, classes, threshold=0.5):
         """Filters YOLO boxes by thresholding on object and class confidence."""
 
         # Compute box scores
-        box_scores = confidence * classes
+        box_scores = tf.expand_dims(confidence, axis=-1) * classes
 
         # index of highest box score (return vector?)
         box_classes = tf.argmax(box_scores, axis=-1)
         # value of the highest box score (return vector?)
         box_class_scores = tf.reduce_max(box_scores, axis=-1)
 
-        prediction_mask = (box_class_scores >= threshold)
+        prediction_mask = (box_class_scores > threshold)
 
         boxes = tf.boolean_mask(boxes, prediction_mask)
         scores = tf.boolean_mask(box_class_scores, prediction_mask)
         classes = tf.boolean_mask(box_classes, prediction_mask)
 
-        #return self.non_max_suppression(boxes, scores, classes)
-        return boxes, scores, classes
+        return self.non_max_suppression(boxes, scores, classes)
+        #return boxes, scores, classes
 
         # TODO: Problem is that tf.boolean_mask deletes the information about batch size and does not support keepdims.
         #  Tried to apply tf.map_fn, but it does not support inconsistent output shapes.
@@ -409,12 +412,17 @@ class YOLO(ModelBase):
         #                  dtype=(tf.float32, tf.float32, tf.int64),
         #                  infer_shape=False)
 
-    def non_max_suppression(self, boxes, scores, classes, max_boxes=30, score_threshold=0.5, iou_threshold=0.5):
+    def non_max_suppression(self, boxes, scores, classes, max_boxes=10, score_threshold=0.5, iou_threshold=0.5):
         """ Applying NMS, optimized box location for same classes"""
 
         max_boxes_tensor = tf.constant(max_boxes, dtype='int32')
 
-        nms_index = tf.image.non_max_suppression(boxes, scores, max_boxes_tensor,
+        x_min = boxes[..., 0:1]
+        y_min = boxes[..., 1:2]
+        x_max = boxes[..., 2:3]
+        y_max = boxes[..., 3:4]
+
+        nms_index = tf.image.non_max_suppression(tf.concat([y_min, x_min, y_max, x_max], axis=1), scores, max_boxes_tensor,
                                                  iou_threshold=iou_threshold, score_threshold=score_threshold)
         boxes = tf.gather(boxes, nms_index)
         scores = tf.gather(scores, nms_index)

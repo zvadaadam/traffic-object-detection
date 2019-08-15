@@ -117,8 +117,8 @@ class CNNModel(object):
         return output
 
     def resize_conv(self, inputs):
-        input_shape = tf.shape(inputs)
-        output = tf.image.resize_nearest_neighbor(inputs, (input_shape[1] * 2, input_shape[2] * 2))
+        input_shape = tf.shape(inputs)[1]
+        output = tf.image.resize_nearest_neighbor(inputs, (2 * input_shape, 2 * input_shape))
 
         return output
 

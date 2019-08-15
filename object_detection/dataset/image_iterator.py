@@ -222,9 +222,13 @@ if __name__ == '__main__':
     #model = YOLO(DarkNet19(config), config)
     model = YOLO(DarkNet53(config), config)
 
-    from object_detection.dataset.rovit_dataset import RovitDataset
-    from object_detection.dataset.bdd_dataset import BddDataset
-    dataset = BddDataset(config)
+    # from object_detection.dataset.rovit_dataset import RovitDataset
+    # from object_detection.dataset.bdd_dataset import BddDataset
+    # dataset = BddDataset(config)
+    # dataset.load_dataset()
+
+    from object_detection.dataset.fuzee_dataset import FuzeeDataset
+    dataset = FuzeeDataset(config)
     dataset.load_dataset()
 
     for _ in range(0, 5):

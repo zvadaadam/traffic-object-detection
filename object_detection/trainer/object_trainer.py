@@ -59,7 +59,7 @@ class ObjectTrainer(BaseTrain):
         self.model.init_saver(max_to_keep=2)
 
         # restore latest checkpoint model
-        if self.config.restore_trained_model() != None:
+        if self.config.restore_trained_model() is not None:
             self.model.load(self.session, self.config.restore_trained_model())
 
         # tqdm progress bar looping through all epoches
@@ -81,6 +81,31 @@ class ObjectTrainer(BaseTrain):
 
         # finale save model - creates checkpoint
         self.model.save(self.session, write_meta_graph=True)
+
+    def eval(self, num_iterations=1):
+
+        x, y, train_handle, test_handle = self.dataset_iterator()
+
+        self.test_handle = test_handle
+        self.train_handle = train_handle
+
+        self.model.build_model(mode='train', x=x, y=y)
+
+        train_writer, test_writer, merged_summaries = self.init_tensorboard()
+
+        init = tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())
+        self.session.run(init)
+
+        self.model.init_saver(max_to_keep=2)
+
+        # restore latest checkpoint model
+        if self.config.restore_trained_model() is not None:
+            self.model.load(self.session, self.config.restore_trained_model())
+
+        for i in range(num_iterations):
+            # run model on test set
+            test_output = self.test_step(test_writer, i, merged_summaries)
+
 
     def init_tensorboard(self):
 
@@ -147,14 +172,16 @@ class ObjectTrainer(BaseTrain):
              self.model.loss_class,
              self.model.learning_rate,
              self.model.nan_1, self.model.nan_2, self.model.nan_3],
-            feed_dict={self.iterator.handle_placeholder: self.test_handle,
+            feed_dict={self.iterator.handle_placeholder: self.train_handle,
                        self.model.is_training: True})
 
-        test_writer.add_summary(summary, num_iterations)
+        #test_writer.add_summary(summary, num_iterations)
 
         print(np.any(nan_1))
         print(np.any(nan_2))
         print(np.any(nan_3))
+
+        print(f'Loss: {loss} -  cord: {loss_cord}, size: {loss_size}, obj: {loss_obj}, noobj: {loss_noobj}, class: {loss_class}')
 
         # -----------TESTING-----------
         # np.set_printoptions(formatter={'float_kind': '{:f}'.format})

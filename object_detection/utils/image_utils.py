@@ -43,7 +43,7 @@ def letterbox_image(image, size):
     new_w = int(image_w * min(w*1.0/image_w, h*1.0/image_h))
     new_h = int(image_h * min(w*1.0/image_w, h*1.0/image_h))
 
-    resized_image = image.resize((new_w,new_h), Image.BICUBIC)
+    resized_image = image.resize((new_w, new_h), Image.BICUBIC)
 
     boxed_image = Image.new('RGB', size, (128,128,128))
     boxed_image.paste(resized_image, ((w-new_w)//2, (h-new_h)//2))
@@ -53,7 +53,7 @@ def letterbox_image(image, size):
 
 def letterbox_image_2(image, target_size, gt_boxes=None):
 
-    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB).astype(np.float32)
+    #image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB).astype(np.float32)
 
     ih, iw = target_size
     h, w, _ = image.shape

@@ -64,79 +64,78 @@ class DarkNet53(CNNModel):
 
     def pyramid_network(self, route_1, route_2, x, is_training):
 
+        # large scale
         conv = self.conv(x, filter_height=1, filter_width=1, num_filters=512, stride_x=1, stride_y=1,
+                         padding='SAME', training=is_training, scope_name='conv52')
+        conv = self.conv(conv, filter_height=3, filter_width=3, num_filters=1024, stride_x=1, stride_y=1,
+                         padding='SAME', training=is_training, scope_name='conv53')
+        conv = self.conv(conv, filter_height=1, filter_width=1, num_filters=512, stride_x=1, stride_y=1,
                          padding='SAME', training=is_training, scope_name='conv54')
         conv = self.conv(conv, filter_height=3, filter_width=3, num_filters=1024, stride_x=1, stride_y=1,
                          padding='SAME', training=is_training, scope_name='conv55')
-        conv = self.conv(conv, filter_height=1, filter_width=1, num_filters=512, stride_x=1, stride_y=1,
+        conv_next = self.conv(conv, filter_height=1, filter_width=1, num_filters=512, stride_x=1, stride_y=1,
                          padding='SAME', training=is_training, scope_name='conv56')
-        conv = self.conv(conv, filter_height=3, filter_width=3, num_filters=1024, stride_x=1, stride_y=1,
+        conv_big_obj = self.conv(conv_next, filter_height=3, filter_width=3, num_filters=1024, stride_x=1, stride_y=1,
                          padding='SAME', training=is_training, scope_name='conv57')
-        conv = self.conv(conv, filter_height=1, filter_width=1, num_filters=512, stride_x=1, stride_y=1,
-                         padding='SAME', training=is_training, scope_name='conv58')
 
-        conv_big_obj = self.conv(conv, filter_height=3, filter_width=3, num_filters=1024, stride_x=1, stride_y=1,
-                         padding='SAME', training=is_training, scope_name='conv59')
         feature_map_1 = self.conv(conv_big_obj, filter_height=1, filter_width=1, num_filters=3*(5 + self.config.num_classes()),
                                   stride_x=1, stride_y=1, padding='SAME', training=is_training, activate=False, bn=False,
-                                  scope_name='conv60')
-
+                                  scope_name='conv58')
         feature_map_1 = tf.reshape(feature_map_1, shape=[self.config.batch_size(),
                                                          self.config.num_cells_large(), self.config.num_cells_large(),
                                                          self.config.boxes_per_cell(),
                                                          (5 + self.config.num_classes())])
-
-        conv = self.conv(x, filter_height=1, filter_width=1, num_filters=256, stride_x=1, stride_y=1,
-                         padding='SAME', training=is_training, scope_name='conv61')
+        # mid scale
+        conv = self.conv(conv_next, filter_height=1, filter_width=1, num_filters=256, stride_x=1, stride_y=1,
+                         padding='SAME', training=is_training, scope_name='conv59')
         upsample = self.resize_conv(conv)
 
         conv = tf.concat([upsample, route_2], axis=-1, name='route_0')
 
         conv = self.conv(conv, filter_height=1, filter_width=1, num_filters=256, stride_x=1, stride_y=1,
-                         padding='SAME', training=is_training, scope_name='conv62')
+                         padding='SAME', training=is_training, scope_name='conv60')
         conv = self.conv(conv, filter_height=3, filter_width=3, num_filters=512, stride_x=1, stride_y=1,
-                         padding='SAME', training=is_training, scope_name='conv63')
+                         padding='SAME', training=is_training, scope_name='conv61')
         conv = self.conv(conv, filter_height=1, filter_width=1, num_filters=256, stride_x=1, stride_y=1,
-                         padding='SAME', training=is_training, scope_name='conv64')
+                         padding='SAME', training=is_training, scope_name='conv62')
         conv = self.conv(conv, filter_height=3, filter_width=3, num_filters=256, stride_x=1, stride_y=1,
-                         padding='SAME', training=is_training, scope_name='conv65')
-        conv = self.conv(conv, filter_height=1, filter_width=1, num_filters=512, stride_x=1, stride_y=1,
-                         padding='SAME', training=is_training, scope_name='conv66')
-
+                         padding='SAME', training=is_training, scope_name='conv63')
+        conv_next = self.conv(conv, filter_height=1, filter_width=1, num_filters=512, stride_x=1, stride_y=1,
+                         padding='SAME', training=is_training, scope_name='conv64')
         conv_mid_obj = self.conv(conv, filter_height=3, filter_width=3, num_filters=256, stride_x=1, stride_y=1,
-                                 padding='SAME', training=is_training, scope_name='conv67')
+                                 padding='SAME', training=is_training, scope_name='conv65')
+
         feature_map_2 = self.conv(conv_mid_obj, filter_height=1, filter_width=1, num_filters=3 * (5 + self.config.num_classes()),
                                   stride_x=1, stride_y=1, padding='SAME', training=is_training, activate=False, bn=False,
-                                  scope_name='conv68')
+                                  scope_name='conv66')
 
         feature_map_2 = tf.reshape(feature_map_2, shape=[self.config.batch_size(),
                                                          self.config.num_cells_medium(), self.config.num_cells_medium(),
                                                          self.config.boxes_per_cell(),
                                                          (5 + self.config.num_classes())])
-
-        conv = self.conv(conv, filter_height=1, filter_width=1, num_filters=128, stride_x=1, stride_y=1,
-                         padding='SAME', training=is_training, scope_name='conv69')
+        # small scale
+        conv = self.conv(conv_next, filter_height=1, filter_width=1, num_filters=128, stride_x=1, stride_y=1,
+                         padding='SAME', training=is_training, scope_name='conv67')
         upsample = self.resize_conv(conv)
 
         conv = tf.concat([upsample, route_1], axis=-1, name='route_0')
 
-
+        conv = self.conv(conv, filter_height=1, filter_width=1, num_filters=128, stride_x=1, stride_y=1,
+                         padding='SAME', training=is_training, scope_name='conv68')
+        conv = self.conv(conv, filter_height=3, filter_width=3, num_filters=256, stride_x=1, stride_y=1,
+                         padding='SAME', training=is_training, scope_name='conv69')
         conv = self.conv(conv, filter_height=1, filter_width=1, num_filters=128, stride_x=1, stride_y=1,
                          padding='SAME', training=is_training, scope_name='conv70')
         conv = self.conv(conv, filter_height=3, filter_width=3, num_filters=256, stride_x=1, stride_y=1,
                          padding='SAME', training=is_training, scope_name='conv71')
         conv = self.conv(conv, filter_height=1, filter_width=1, num_filters=128, stride_x=1, stride_y=1,
                          padding='SAME', training=is_training, scope_name='conv72')
-        conv = self.conv(conv, filter_height=3, filter_width=3, num_filters=256, stride_x=1, stride_y=1,
-                         padding='SAME', training=is_training, scope_name='conv73')
-        conv = self.conv(conv, filter_height=1, filter_width=1, num_filters=128, stride_x=1, stride_y=1,
-                         padding='SAME', training=is_training, scope_name='conv74')
 
         conv_small_obj = self.conv(conv, filter_height=3, filter_width=3, num_filters=256, stride_x=1, stride_y=1,
-                                 padding='SAME', training=is_training, scope_name='conv75')
+                                 padding='SAME', training=is_training, scope_name='conv73')
         feature_map_3 = self.conv(conv_small_obj, filter_height=1, filter_width=1, num_filters=3 * (5 + self.config.num_classes()),
                                   stride_x=1, stride_y=1, padding='SAME', training=is_training, activate=False, bn=False,
-                                  scope_name='conv76')
+                                  scope_name='conv74')
 
         feature_map_3 = tf.reshape(feature_map_3, shape=[self.config.batch_size(),
                                                          self.config.num_cells_small(), self.config.num_cells_small(),
