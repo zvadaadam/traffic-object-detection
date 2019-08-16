@@ -160,7 +160,7 @@ class DatasetBase(object):
 
             # resize cords
             x_min, y_min, x_max, y_max = image_utils.resize_boxe(bbox, current_size=(image_shape[0], image_shape[1]),
-                                                                 target_size=(yolo_image_size, yolo_image_size))
+                                                                 target_size=(yolo_image_size, yolo_image_size), keep_ratio=True)
 
             # self.test_plot_yolo_img(traffic_object[0], x_min, y_min, x_max, y_max, traffic_object[:10])
 
@@ -217,7 +217,8 @@ class DatasetBase(object):
 
         image = cv2.imread(img_filename)
 
-        resized_img = cv2.resize(image, (416, 416), interpolation=cv2.INTER_NEAREST)
+        #resized_img = cv2.resize(image, (416, 416), interpolation=cv2.INTER_NEAREST)
+        resized_img = image_utils.letterbox_image_2(image, (416, 416))
         image = image_utils.draw_boxes_PIL(resized_img, boxes=[(x_min, x_max, y_min, y_max)], scores=[1],
                                            classes=one_hot)
         plt.imshow(image)

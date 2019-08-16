@@ -32,7 +32,7 @@ class ImageIterator(object):
         dataset = dataset.map(self.preprocess_tfrecords, num_parallel_calls=8)
         dataset = dataset.cache()
         dataset = dataset.apply(tf.data.experimental.shuffle_and_repeat(buffer_size=188))  # TODO: num images
-        # dataset = dataset.shuffle(self.config.batch_size()*2)
+        #dataset = dataset.shuffle(self.config.batch_size()*2)
         dataset = dataset.batch(self.config.batch_size(), drop_remainder=True)
         #dataset = dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
         dataset = dataset.prefetch(buffer_size=2)
@@ -227,8 +227,13 @@ if __name__ == '__main__':
     # dataset = BddDataset(config)
     # dataset.load_dataset()
 
-    from object_detection.dataset.fuzee_dataset import FuzeeDataset
-    dataset = FuzeeDataset(config)
+    # from object_detection.dataset.fuzee_dataset import FuzeeDataset
+    # dataset = FuzeeDataset(config)
+    # dataset.load_dataset()
+
+    from object_detection.dataset.all_dataset import AllDataset
+
+    dataset = AllDataset(config)
     dataset.load_dataset()
 
     for _ in range(0, 5):

@@ -184,14 +184,14 @@ class YOLO(ModelBase):
         # INPUT: (?, grid_size, grid_size, num_anchors, 5 + num_classes)
 
         with tf.name_scope('loss'):
-            loss_size, loss_cord = self.cord_loss(label, predict, lambda_cord)
+            loss_size, loss_cord = self.cord_loss(label, predict, anchors)
             self.loss_cord = loss_cord
             self.loss_size = loss_size
 
             tf.summary.scalar('loss_cord', loss_cord)
             tf.summary.scalar('loss_size', loss_size)
 
-            loss_confidence, loss_obj, loss_noobj = self.confidence_loss(label, predict, anchors, lambda_noobj)
+            loss_confidence, loss_obj, loss_noobj = self.confidence_loss(label, predict, anchors)
             self.loss_obj = loss_obj
             self.loss_noobj = loss_noobj
             self.loss_confidence = loss_confidence
@@ -213,7 +213,7 @@ class YOLO(ModelBase):
 
         return loss
 
-    def cord_loss(self, label, pred, anchors, lambda_cord=5):
+    def cord_loss(self, label, pred, anchors):
         # INPUT: (?, grid_size, grid_size, num_anchors, 5 + num_classes)
 
         with tf.name_scope('cord'):
@@ -229,25 +229,24 @@ class YOLO(ModelBase):
             label_size = label[..., 2:4]
 
             # hack from darknet: box punishment - give higher weights to small boxes
-            label_size_absolute = label_size / anchors
-            box_loss_scale = 2. - (label_size_absolute[..., 0] * label_size_absolute[..., 1])
-            #box_loss_scale = tf.Print(box_loss_scale, [box_loss_scale], summarize=-1)
+            label_size = label_size * np.array(anchors)
+            box_loss_scale = 2. - (label_size[..., 0] * label_size[..., 1])
             box_loss_scale = tf.expand_dims(box_loss_scale, axis=-1)
 
             # inverting ground truth to match network output for gradient update (pred_size is transformed using exp)
-            pred_size = tf.math.log(tf.clip_by_value(pred_size, 1e-4, 1e4))
-            label_size = tf.math.log(tf.clip_by_value(label_size, 1e-4, 1e4))
+            pred_size = tf.math.log(tf.clip_by_value(pred_size, 1e-8, 1e8))
+            label_size = tf.math.log(tf.clip_by_value(label_size, 1e-8, 1e8))
             # numerical stability cause of using log transform
             label_size = tf.where(tf.math.is_inf(label_size), tf.zeros_like(label_size), label_size)
             pred_size = tf.where(tf.math.is_inf(pred_size), tf.zeros_like(pred_size), pred_size)
 
             # calculate loss for x,y
-            loss_cord = (cord_mask * tf.square(pred_cord - label_cord)) #* box_loss_scale
+            loss_cord = (cord_mask * tf.square(pred_cord - label_cord)) * box_loss_scale
             loss_cord = tf.reduce_sum(loss_cord, axis=[1, 2, 3, 4]) #* lambda_cord #
             loss_cord = tf.reduce_mean(loss_cord)
 
             # calculate loss for w,h
-            loss_size = (cord_mask * tf.square(pred_size - label_size)) #* box_loss_scale
+            loss_size = (cord_mask * tf.square(pred_size - label_size)) * box_loss_scale
             loss_size = tf.reduce_sum(loss_size, axis=[1, 2, 3, 4]) #* lambda_cord #
             loss_size = tf.reduce_mean(loss_size)
 
@@ -456,6 +455,8 @@ class YOLO(ModelBase):
         grid_length = cell_size * tf.cast(num_grids, dtype=tf.float32)
         box_xy = box_xy * cell_size
         box_wh = box_wh * grid_length
+
+        #box_wh = tf.Print(box_wh, [box_wh], summarize=-1)
 
         # convert to min max coordinates
         box_mins = box_xy - (box_wh / 2.)
