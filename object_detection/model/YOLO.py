@@ -101,6 +101,8 @@ class YOLO(ModelBase):
             if x is None or y is None:
                 raise Exception('Missing input for building graph for training the model.')
             self.build_training_model(x, y)
+        elif mode == 'eval':
+            self.build_eval_model(self.images, self.y_small, self.y_medium, self.y_large)
         elif mode == 'predict':
             self.build_predict_model(self.images)
         else:
@@ -130,6 +132,19 @@ class YOLO(ModelBase):
             self.loss += self.yolo_loss(predict=transformed_logits, label=y_scale, anchors=self.anchors[i])
 
         self.opt = self.optimizer(self.loss, self.config.learning_rate())
+
+    def build_eval_model(self, images, y_small, y_medium, y_large):
+
+        logits = self.network.build_network(images, self.is_training)
+
+        # number of anchors defined number of scales
+        transformed_logits = [self.transform_output_logits(logits[i]) for i in range(self.config.num_scales())]
+
+        self.loss_small = self.yolo_loss(predict=transformed_logits[0], label=y_small, anchors=self.anchors[0])
+        self.loss_medium = self.yolo_loss(predict=transformed_logits[1], label=y_medium, anchors=self.anchors[1])
+        self.loss_large = self.yolo_loss(predict=transformed_logits[2], label=y_large, anchors=self.anchors[2])
+
+        self.detections = self.eval_prediction(transformed_logits)
 
     def build_predict_model(self, images):
 
@@ -230,23 +245,29 @@ class YOLO(ModelBase):
 
             # hack from darknet: box punishment - give higher weights to small boxes
             label_size = label_size * np.array(anchors)
+            label_size = tf.Print(label_size, [label_size], summarize=-1)
             box_loss_scale = 2. - (label_size[..., 0] * label_size[..., 1])
             box_loss_scale = tf.expand_dims(box_loss_scale, axis=-1)
 
-            # inverting ground truth to match network output for gradient update (pred_size is transformed using exp)
-            pred_size = tf.math.log(tf.clip_by_value(pred_size, 1e-8, 1e8))
-            label_size = tf.math.log(tf.clip_by_value(label_size, 1e-8, 1e8))
             # numerical stability cause of using log transform
-            label_size = tf.where(tf.math.is_inf(label_size), tf.zeros_like(label_size), label_size)
-            pred_size = tf.where(tf.math.is_inf(pred_size), tf.zeros_like(pred_size), pred_size)
+            pred_size = tf.where(condition=tf.equal(pred_size, 0), x=tf.ones_like(pred_size), y=pred_size)
+            label_size = tf.where(condition=tf.equal(label_size, 0), x=tf.ones_like(label_size), y=label_size)
+
+            # Taking square root so that width and height errors of small and large boxes are penalised similiarly
+            pred_size = tf.sqrt(pred_size)
+            label_size = tf.sqrt(label_size)
+
+            # inverting ground truth to match network output for gradient update (pred_size is transformed using exp)
+            pred_size = tf.math.log(tf.clip_by_value(pred_size, 1e-9, 1e9))
+            label_size = tf.math.log(tf.clip_by_value(label_size, 1e-9, 1e9))
 
             # calculate loss for x,y
-            loss_cord = (cord_mask * tf.square(pred_cord - label_cord)) * box_loss_scale
+            loss_cord = (cord_mask * tf.square(label_cord - pred_cord)) * box_loss_scale
             loss_cord = tf.reduce_sum(loss_cord, axis=[1, 2, 3, 4]) #* lambda_cord #
             loss_cord = tf.reduce_mean(loss_cord)
 
             # calculate loss for w,h
-            loss_size = (cord_mask * tf.square(pred_size - label_size)) * box_loss_scale
+            loss_size = (cord_mask * tf.square(label_size - pred_size)) * box_loss_scale
             loss_size = tf.reduce_sum(loss_size, axis=[1, 2, 3, 4]) #* lambda_cord #
             loss_size = tf.reduce_mean(loss_size)
 
@@ -282,7 +303,7 @@ class YOLO(ModelBase):
             objects_loss = mask_obj * objects_loss
 
             # focal loss
-            focal = self.focal_loss(confidence_label, confidence_pred)
+            focal = self.focal_loss(confidence_label, confidence_pred, alpha=0.5)
 
             # sum up everything
             confidence_loss = focal * (no_objects_loss + objects_loss)
@@ -396,8 +417,8 @@ class YOLO(ModelBase):
         scores = tf.boolean_mask(box_class_scores, prediction_mask)
         classes = tf.boolean_mask(box_classes, prediction_mask)
 
-        return self.non_max_suppression(boxes, scores, classes)
-        #return boxes, scores, classes
+        #return self.non_max_suppression(boxes, scores, classes)
+        return boxes, scores, classes
 
         # TODO: Problem is that tf.boolean_mask deletes the information about batch size and does not support keepdims.
         #  Tried to apply tf.map_fn, but it does not support inconsistent output shapes.
@@ -411,7 +432,7 @@ class YOLO(ModelBase):
         #                  dtype=(tf.float32, tf.float32, tf.int64),
         #                  infer_shape=False)
 
-    def non_max_suppression(self, boxes, scores, classes, max_boxes=10, score_threshold=0.5, iou_threshold=0.5):
+    def non_max_suppression(self, boxes, scores, classes, max_boxes=100, score_threshold=0.5, iou_threshold=0.5):
         """ Applying NMS, optimized box location for same classes"""
 
         max_boxes_tensor = tf.constant(max_boxes, dtype='int32')

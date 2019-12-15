@@ -220,7 +220,7 @@ if __name__ == '__main__':
     from object_detection.model.YOLO import YOLO
     from object_detection.utils import image_utils
     #model = YOLO(DarkNet19(config), config)
-    model = YOLO(DarkNet53(config), config)
+    #model = YOLO(DarkNet53(config), config)
 
     # from object_detection.dataset.rovit_dataset import RovitDataset
     # from object_detection.dataset.bdd_dataset import BddDataset
@@ -232,39 +232,47 @@ if __name__ == '__main__':
     # dataset.load_dataset()
 
     from object_detection.dataset.all_dataset import AllDataset
+    from object_detection.detector import Detector
 
-    dataset = AllDataset(config)
-    dataset.load_dataset()
+    config_path = '/Users/adam.zvada/Documents/Dev/object-detection/config/yolo.yml'
+    tf_config = tf.ConfigProto()
+    tf_config.gpu_options.allow_growth = True
+    with tf.Session(config=tf_config) as session:
+        dataset = AllDataset(config)
+        dataset.load_dataset()
 
-    for _ in range(0, 5):
-        with tf.Session() as session:
-            iterator = ImageIterator(session, dataset, config, model)
+        detector = Detector(session, config=config)
+        detector.init_eval()
+
+        for _ in range(0, 5):
+            iterator = ImageIterator(session, dataset, config, detector.model)
             # iterator.create_iterator_from_tfrecords(mode='train')
-            x, y, handler = iterator.create_iterator(mode='train')
+            x, y, handler = iterator.create_iterator(mode='test')
 
             images, labels = session.run((x, y))
+            prediction = detector.eval(images, labels)
 
-            # test_iou = model.test_iou()
-            # output = session.run(test_iou, feed_dict={model.test_large: labels[2], model.y_large: labels[2]})
-            # print(output)
+                # test_iou = model.test_iou()
+                # output = session.run(test_iou, feed_dict={model.test_large: labels[2], model.y_large: labels[2]})
+                # print(output)
 
-            # check bb conversion
-            label_to_boxes = model.label_to_boxes()
-            transformed_labels = session.run(label_to_boxes, feed_dict={model.y_small: labels[0],
-                                                                        model.y_medium: labels[1],
-                                                                        model.y_large: labels[2]})
+                # # check bb conversion
+                # label_to_boxes = model.label_to_boxes()
+                # transformed_labels = session.run(label_to_boxes, feed_dict={model.y_small: labels[0],
+                #                                                             model.y_medium: labels[1],
+                #                                                             model.y_large: labels[2]})
+                #
+                # image = image_utils.draw_boxes_PIL(images[0], boxes=transformed_labels[0], scores=transformed_labels[1],
+                #                                    classes=transformed_labels[2])
+                #
+                # img = image_utils.draw_boxes_PIL(image, prediction[0], prediction[1], prediction[2])
+                #
+                # plt.imshow(img)
+                # plt.show()
 
-            image = image_utils.draw_boxes_PIL(images[0], boxes=transformed_labels[0], scores=transformed_labels[1],
-                                               classes=transformed_labels[2])
-            plt.imshow(image)
-            plt.show()
-
-            plt.imshow(images[0])
-            plt.show()
-
-        # for image in images:
-            #     image = image_utils.draw_boxes_PIL(image, boxes=transformed_labels[0], scores=transformed_labels[1],
-            #                                        classes=transformed_labels[2])
-            #     plt.imshow(image)
-            #     plt.show()
+            # for image in images:
+                #     image = image_utils.draw_boxes_PIL(image, boxes=transformed_labels[0], scores=transformed_labels[1],
+                #                                        classes=transformed_labels[2])
+                #     plt.imshow(image)
+                #     plt.show()
 
